@@ -1,7 +1,7 @@
 module src/test
 
 import test
-import src/lib
+import src/minesweeper
 
 def main() = mainSuite("lib") {
   test("Hello world") {

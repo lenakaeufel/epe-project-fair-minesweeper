@@ -1,127 +1,135 @@
-# Effekt Template
+# Fair Minesweeper
 
-> [!WARNING]
-> This is a work-in-progress, feel free to contribute!
+Short Project Description:
 
-This template provides a starting point for Effekt projects.
+Effekt implementation of the fair minesweeper game. Fair minesweeper is like the classical minsweeper but with two additional features:
 
-## Table of contents
+1. If the user, judging by the state of the board, could not be sure that a mine was not on any square,
+   a mine is not on that square after uncovering any square
+2. Conversely, if the user could have been certain that a mine was not on any square, but still
+   uncovered a square on which he could not have been certain, the mine is on that square
 
-- [First steps](#first-steps)
-- [Useful commands](#useful-commands)
-  - [Effekt commands](#effekt-commands)
-  - [Nix-related commands](#nix-related-commands)
-- [Example projects](#example-projects-using-this-template)
-- [Repository structure](#repository-structure)
-- [CI](#ci)
+## Must-have
 
----
+Features that I 100% promise to be done
 
-## First steps
+- minesweeper game in one difficulty level (Beginner: 9x9 board with 10 mines)
+- a solver for the game (related to can have feature hints: use this solver for hints?!)
+- terminal representation of the game:
+  - see the current board displayed in the terminal, a bit similar to this:
+    ![alt text](image.png)
+  - user can input the coordinates (x,y) of a field as well as what he wants to do with it (uncover(u)/flag(f)), with a representation like (x,y,u/f)
+  - handle wrong user inputs that don't match the representation and tell the user what he did wrong(e.g. x and y out of board size, third input has to be u or f, wrong number of inputs,...)
+  - game over message (can have: nice/funny game over screen) + try again possibility
+  - winning message (can have: nice/funny winning screen) + try again possibility
+- user can unflag a previously flaged cell
+- explanation of the rules when player starts the game (+ user can input something like "rules" to show the rules again)
+- ability to quit the game before finishing by pressing some key
+- print all the inputs a user can do under the game screen (something like "press XX to quit the game", "press XX to show the rules again", "input coordinates in the format XX to make a move", "press XX to restart the game", ...)
+- generating a random board each time the user starts the game
+- correct implementation of all the basic rules of minesweeper as well as the two additional rules for fair minesweeper
 
-After using this template, follow these steps to set up your project:
+  - Also implement chording: when an uncovered square with a number has exactly the correct number of adjacent squares flagged, performing a click with both mouse buttons on it (in my representation probably just trying to uncover the field with the number and if enough flags are around it, perform the chording, if not, tell the user this is not a valid move) will uncover all unmarked squares; This is called a Chord.
 
-1. Set up your development environment:
-   - Clone this repository locally.
-   - Open it in VSCode.
-   - Install the Effekt VSCode extension offered in the pop-up in the bottom right.
+- always notice when game is won as soon as all fields without a mine are uncovered and finish the game with the winning screen
 
-2. Customize the project:
-   - Open `flake.nix` and update the project name and other relevant values (follow the comments).
-   - Push your `flake.nix` file after the changes and see if the CI agrees.
+## Can-have
 
-3. Set-up auto-update CI:
-   - Go to Settings -> Actions -> General and check "Allow GitHub Actions to create and approve pull requests"
-     in order to get weekly Pull Requests on Tuesday that update the Effekt version in CI.
-   - See the [CI](#ci) section for more details
+Features that might or might not be done
 
-3. Replace this `README` with your own!
-   - Please link back to this repo if you can :)
+- more built in difficulty levels (e.g. Intermediate 16x16 with 40 mines, Advanced 24x24 with 99 mines)
+- user specified difficulty of the game (board size, number of mines)
+- different game modes (timer, hints, losing a life instead of immediate game over when uncovering bomb, no flags allowed)
+- record and show the player some stats (e.g. time he needed for solving, efficiency(# of clicks))
+- using emojis to display the game in a nicer way
+- making it a web application with a nice GUI (clicking the fields to place flags, uncover)
+- store high scores (total high score, high score by player name) also when game is closed and restarted (file writer?!)
 
-## Useful commands
+## Will-not-have
 
-### Effekt commands
+Features that I definitely won't have
 
-Run the main file:
-```sh
-effekt src/main.effekt
-```
-This (like many other Effekt commands) uses the JavaScript backend by default.
-To use a different backend, add the `--backend <backend>` flag.
+These were generated by Claude because initially I didn't have any idea on what to write here and it did a pretty good job IMO :P
 
-Run the tests:
-```sh
-effekt src/test.effekt
-```
+- Multiplayer functionality
+- Sound effects
+- Custom themes or skins
+- Undo/redo functionality
+- Save/load game state between sessions
+- AI opponent mode
+- Tutorial mode with guided gameplay
+- Automated gameplay recording
+- Social sharing features
+- ...
 
-Open the REPL:
-```sh
-effekt
-```
+## Effects and handlers
 
-Build the project:
-```sh
-effekt --build src/main.effekt
-```
-This builds the project into the `out/` directory, creating a runnable file `out/main`.
+What effects and handlers am I planning to use and how?
+(There should be some fun ones, the language is called _Effekt_ after all...)
 
-To see all available options and backends, run:
-```sh
-effekt --help
-```
+This is maybe a bit vague and parts won't work out like this because I find it very hard to state this before actually implementing.. but I've tried :D
 
-### Nix-related commands
+Effects:
 
-While Nix installation is optional, it provides several benefits:
+- **finish** Effect for finishing the game
+  - parameters: Boolean won?, final Board
+  - used for: Displaying final board state (bidirectional effect throwing display?), winning/game-over messages, prompting for new game
+- **display** Effect for displaying different things like the current board, the rules, winning/game over screen,...
 
-Update dependencies (also runs automatically in CI):
-```sh
-nix flake update
-```
+- **state** Effect to get the current game state (board, optional timer, move count)
 
-Open a shell with all necessary dependencies:
-```sh
-nix develop
-```
+- **modify**: Effect for board modifications
 
-Run the main entry point:
-```sh
-nix run
-```
+  - parameters: position (x,y), action (uncover/flag/remove flag), playerboard, actual board
+  - used for: Updating game board state following player actions
 
-Build the project (output in `result/bin/`):
-```sh
-nix build
-```
+- **random**: Effect for random number/mine generation
 
-## Example projects using this template
+  - used for: Generating mine positions, ensuring fair mine placement
 
-- [`effekt-stm`](https://github.com/jiribenes/effekt-stm)
-- This very project!
+- **wrongInput**: Effect to tell the user the input was not valid (different effects for different kinds of errors like index not in board, wrong number of inputs,...)
 
-## Repository structure
+- **input**: Effect for user input handling
 
-- `.github/workflows/*.yml`: Contains the [CI](#ci) definitions
-- `src/`: Contains the source code
-  - `main.effekt`: Main entry point
-  - `test.effekt`: Entry point for tests
-  - `lib.effekt`: Library code imported by `main` and `test`
-- `flake.nix`: Package configuration in a Nix flake
-- `flake.lock`: Auto-generated lockfile for dependencies
-- `LICENSE`: Project license
-- `README`: This README file
+  - used for: Reading and validating coordinate inputs
 
-## CI
+- **solver**: Effect for a solver for minesweeper
 
-Two GitHub Actions are set up:
+  - parameters: current board
 
-1. `flake-check`:
-   - Checks the `flake.nix` file, builds and tests the project
-   - Runs on demand, on `main`, and on PRs
-   - To run custom commands, add a step using:
-     - `nix run -- <ARGS>` to run the main entry point with the given arguments
-     - `nix develop -c '<bash command to run>'` to run commands in the correct environment
+- a custom representation of the board
 
-2. `update-flake-lock`:
-   - Updates package versions in `flake.nix`
-   - Runs on demand and weekly (Tuesdays at 00:00 UTC)
+Handlers:
+
+- handler for I/O to actually display board (handles finish/display/wrongInput)
+- handler for the state effect to return the current state of the board
+- handler for ensuring fair mine placement (handles the random effect)
+- handler for the input effect -> validates the input regarding the format and throws wrongInput effect if input doesn't match the input format. If the format was correct checks if move wasn't already done before (matches the board) and throws modify effect to modify the board in case it's a truly valid move.
+- handler for the solver, makes next steps of the solver based on minesweeper rules,analyzing current board state safe moves, determined mine positions (use patterns?!)
+- handler for the modify effect to actually modify the current board of the user/ return new board. Check here if game is won? If not, where else?
+
+## FFI and libraries
+
+What FFI/libraries will I need? What is their current status?
+(This is so that we both can estimate how much time you'll have to spend on writing glue code.)
+
+Status:
+
+✅ = library/FFI already there, can be used just as it is
+
+❌ = library/FFI not there/not immediately usable
+
+Libraries:
+
+- ✅ string/tty for colored representation of the board in the terminal
+- ✅ io/console for getting user inputs from the terminal
+- ❌ random int function to generate boards randomly
+- optional: ✅ io/console for can-do feature of globally stored highscores??
+- optional: ✅ bench -> functions for measuring the time the player needed until finishing the game
+- optional: ❓ libraries, FFI needed to make it a web application (compare to ex-5?!)
+
+## Possible resources and other ideas:
+
+- [patterns](https://minesweeper.online/de/help/patterns) (to be used in solver/for hints?!)
+- [example implementation](https://www.geeksforgeeks.org/cpp-implementation-minesweeper-game/) of minesweeper in C++
+- for the implementation: maintain two boards: one that's displayed to the player, including all of his moves so far and one that can't change (except for maintaining the rules of fair minesweeper, first move) and holds the solution with all hidden mines
