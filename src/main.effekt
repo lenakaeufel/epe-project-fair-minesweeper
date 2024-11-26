@@ -2,4 +2,4 @@ module main // must be named same as the file!
 
 import src/minesweeper
 
-def main(): Unit = println(helloWorld())
+def main()= println("Under construction")

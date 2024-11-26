@@ -3,8 +3,5 @@ module src/test
 import test
 import src/minesweeper
 
-def main() = mainSuite("lib") {
-  test("Hello world") {
-    assertEqual(helloWorld(), "Hello, world!")
-  }
-}
+def main() = {println("Under construction")}
+
