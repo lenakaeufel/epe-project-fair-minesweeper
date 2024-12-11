@@ -5,9 +5,10 @@ val BOARDSIZE: Int = 4
 
 // custom type to represent the state of a cell of the Board
 type CellState {
+  Hidden(); // Hidden cells are only possible on the board of the player
   EmptyCell(); 
   Number(n: Int);
-  Bomb();
+  Mine();
   Flag()
 }
 
@@ -19,9 +20,10 @@ def printRow(row: List[CellState]): String = {
   var out: String = ""
   row.foreach{ c =>
     c match {
+      case Hidden() => out = out ++ "  " ++ Formatted::colored("H", ANSI::BLACK)
       case EmptyCell() => out = out ++ Formatted::colored("  -", ANSI::CYAN)
       case Number(n) => out = out ++ "  " ++ show(n)
-      case Bomb() => out = out ++ Formatted::colored("  B", ANSI::YELLOW)
+      case Mine() => out = out ++ Formatted::colored("  B", ANSI::YELLOW)
       case Flag() => out = out ++ "  F".red // toString('🚩') 
     }
   }
@@ -38,31 +40,14 @@ def printBoard(board: Board): Unit = {
     with on[OutOfBounds].panic
     val row: List[CellState] = board.get(n)
     val s: String = printRow(row)
-    println(show(n) ++ s)
-    
+    println(show(n) ++ s)   
   }
-  
+  println("")
 }
 
 def updateCell(board: Board, row_index: Int, col_index: Int, state: CellState): Board = {
-  var newBoard: Board = []
-
-  board.foreachIndex { (n, row) =>
-    if(n == row_index){
-      row.foreachIndex { (i, col) =>
-        var newRow: List[CellState] = []
-        if(i == col_index){
-          newRow = newRow.append([state])
-          }
-        else {
-          newRow = newRow.append([col])
-        }
-        newBoard = newBoard.append([newRow])}
-        }
-    else {
-      newBoard = newBoard.append([row])
-    }}
-  newBoard
+  board.updateAt(row_index){r =>
+    r.updateAt(col_index){s => state}}
 }
 
 val exampleBoard2x2: Board = [
@@ -71,14 +56,22 @@ val exampleBoard2x2: Board = [
 ]
 
 val exampleBoard4x4: Board = [
-  [EmptyCell(), Number(1), Bomb(), Flag()],
+  [EmptyCell(), Number(1), Mine(), Flag()],
   [Flag(), EmptyCell(), Number(2), Number(3)],
   [EmptyCell(), EmptyCell(), Number(2), EmptyCell()],
-  [EmptyCell(), Flag(), Bomb(), EmptyCell()]
+  [EmptyCell(), Flag(), Mine(), EmptyCell()]
+]
+
+val examplePlayerBoard4x4: Board = [
+  [EmptyCell(), Number(1), Hidden(), Hidden()],
+  [Flag(), EmptyCell(), Number(2), Number(3)],
+  [EmptyCell(), EmptyCell(), Number(2), EmptyCell()],
+  [EmptyCell(), Flag(), Hidden(), EmptyCell()]
 ]
 
 def main(): Unit = {
-  printBoard(exampleBoard4x4)
+  printBoard(examplePlayerBoard4x4)
+  printBoard(examplePlayerBoard4x4.updateCell(0, 3, Flag()))
 }
 
 
