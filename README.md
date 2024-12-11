@@ -9,6 +9,8 @@ Effekt implementation of the fair minesweeper game. Fair minesweeper is like the
 2. Conversely, if the user could have been certain that a mine was not on any square, but still
    uncovered a square on which he could not have been certain, the mine is on that square
 
+`=>` the current state and features of the project as well as the next steps planned can be found [here](https://github.com/lenakaeufel/epe-project-fair-minesweeper/blob/main/nextSteps.md)
+
 ## Must-have
 
 Features that I 100% promise to be done
