@@ -22,7 +22,7 @@ def printRow(row: List[CellState]): String = {
       case EmptyCell() => out = out ++ Formatted::colored("  -", ANSI::CYAN)
       case Number(n) => out = out ++ "  " ++ show(n)
       case Bomb() => out = out ++ Formatted::colored("  B", ANSI::YELLOW)
-      case Flag() => out = out ++ "  F".red
+      case Flag() => out = out ++ "  F".red // toString('🚩') 
     }
   }
   out
@@ -80,4 +80,6 @@ val exampleBoard4x4: Board = [
 def main(): Unit = {
   printBoard(exampleBoard4x4)
 }
+
+
 
