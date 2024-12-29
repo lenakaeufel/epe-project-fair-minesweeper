@@ -19,7 +19,6 @@ effect invalidInput(msg: String): Unit
 //             Solution board has only Number and Mine cells
 type CellState {
   Hidden(); // Hidden cells are only possible on the board of the player
-  EmptyCell(); 
   Number(n: Int);
   Mine(); // Mines won't be shown on the board of the player. If a cell with a mine isn't Hidden, the game is lost
   Flag()
@@ -28,13 +27,14 @@ type CellState {
 type Board = List[List[CellState]]
 
 // prints the row of a board while translating the CellState Types to the corresponding string representation/symbol
+// if a there aren't any mines around a cell, the field is displayed as an empty field (-)
 def printRow(row: List[CellState]): String = {
   with Formatted::formatting;
   var out: String = ""
   row.foreach{ c =>
     c match {
       case Hidden() => out = out ++ "  " ++ Formatted::colored("H", Color::BLACK)
-      case EmptyCell() => out = out ++ Formatted::colored("  -", Color::CYAN)
+      case Number(0) => out = out ++ Formatted::colored("  -", Color::CYAN)
       case Number(n) => out = out ++ "  " ++ show(n)
       case Mine() => out = out ++ Formatted::colored("  M", Color::YELLOW)
       case Flag() => out = out ++ "  F".red // toString('🚩') 
@@ -80,7 +80,7 @@ def generateBoard(size: Int, numMines: Int): Board/{invalidInput} = {
     do invalidInput("invalid input: number of mines musn't be negative")
   }
   with on[OutOfBounds].panic
-  var board: Board = fill[List[CellState]](size, fill[CellState](size, EmptyCell())) 
+  var board: Board = fill[List[CellState]](size, fill[CellState](size, Number(0))) 
 
   // Mine Placement
   var minesPlaced = 0
@@ -91,7 +91,7 @@ def generateBoard(size: Int, numMines: Int): Board/{invalidInput} = {
     val cell: CellState = board.get(r).get(c)
 
     cell match {
-      case EmptyCell() => 
+      case Number(0) => 
       board = updateCell(board, r, c, Mine())
       minesPlaced = minesPlaced + 1
       case _ => board = board // TODO: better way to do this?
@@ -145,7 +145,7 @@ def isMine(board: Board, row: Int, col: Int): Bool = {
 }
 
 
-val exampleBoard2x2: Board = [
+/*val exampleBoard2x2: Board = [
   [EmptyCell(), Number(1)],
   [Flag(), EmptyCell()]
 ]
@@ -162,7 +162,7 @@ val examplePlayerBoard4x4: Board = [
   [Flag(), EmptyCell(), Number(2), Number(3)],
   [EmptyCell(), EmptyCell(), Number(2), EmptyCell()],
   [EmptyCell(), Flag(), Hidden(), EmptyCell()]
-]
+]*/
 
 def main(): Unit = {
   //printBoard(examplePlayerBoard4x4)

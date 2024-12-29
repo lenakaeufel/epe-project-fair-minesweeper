@@ -15,7 +15,7 @@ To organize/structure the project, the next steps I want to do will always be ad
   - therefore function(s) to check/maintain the rules (e.g. max 8 mines around each field,...)
   - functionality for players not in scope here, just static board generation
   - mine placement function parametrized by total number of mines
-  - idea: input desired number of mines and just place this number of mines at random coordinates on the board (check that coordinates are unique -> no two mines on the same field). Then for each field count the numbers of mines surrounding it (max 8) -> special case: edges (max 3) and borders (max 5). If the number is 0, it's an EmptyCell, else it's Number cell.
+  - idea: input desired number of mines and just place this number of mines at random coordinates on the board (check that coordinates are unique -> no two mines on the same field). Then for each field count the numbers of mines surrounding it (max 8) -> special case: edges (max 3) and borders (max 5). If the number is 0, it's displayed as an empty cell, else the number gets shown
   - `=>` done if a random, correct(correct numbers,...) board can be generated automatically
 
 ### Fourth Week: 17.12. - 23.12.2024
@@ -30,6 +30,7 @@ To organize/structure the project, the next steps I want to do will always be ad
   - functionality for players not in scope here, just static board generation
   - mine placement function parametrized by total number of mines
   - idea: input desired number of mines and just place this number of mines at random coordinates on the board (check that coordinates are unique -> no two mines on the same field). Then for each field count the numbers of mines surrounding it (max 8) -> special case: edges (max 3) and borders (max 5). If the number is 0, it's an EmptyCell, else it's Number cell.
+  - check for valid input when generating the board (negative inputs, numMines > size)
   - `=>` done if a random, correct(correct numbers,...) board can be generated automatically
 
 ### Second Week: 03.12. - 09.12.2024
@@ -61,6 +62,8 @@ To organize/structure the project, the next steps I want to do will always be ad
   - `=>` done if a given move of the player can be validated by maintainig the rules
 
 - 🛠️ add emojis to represent the board cells
+
+- remove EmptyCell() and match for Number(0) in printRow instead?
 
 ---
 
