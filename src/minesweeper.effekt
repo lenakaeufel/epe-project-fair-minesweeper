@@ -46,16 +46,19 @@ def printRow(row: List[CellState]): String = {
 // prints a given board in a nice way
 def printBoard(board: Board): Unit = {
   val boardsize = board.size
-  var rowIndices = "   "
+  var rowIndices = "    "
+  var border = "  "
   each(0, boardsize) {n =>
     rowIndices = rowIndices ++ show(n) ++ "  "
+    border = border ++ "---"
   }
   println(rowIndices)
+  println(border)
   each(0, boardsize) {n =>
     with on[OutOfBounds].panic
     val row: List[CellState] = board.get(n)
     val s: String = printRow(row)
-    println(show(n) ++ s)   
+    println(show(n) ++ "|" ++ s)   
   }
   println("")
 }
