@@ -29,12 +29,14 @@ To organize/structure the project, the next steps I want to do will always be ad
   - display correct error message in case any invalid key was pressed
   - `=>` done if all of the above features are working. Winning/loosing is not in scope here, so the game can only end with the user pressing q
 
-- ❌ add functionality for players:
+- ✅ add functionality for players:
 
   - function to validate player's moves (coordinates in board range, trying to uncover an already uncovered cell (Number cell))
   - unflagging a previously flagged cell should be possible
   - terminal interaction currently not in scope, only function that get's a move and returns the new board after the move
-  - `=>` done if a move can be made by calling some function. The move has to be a valid one, otherwise the correct error message get's displayed
+  - maintain a new board for players, create it based on size of previously generated solution board
+  - recursively uncover adjacent cells when uncovering an empty cell (🟡 floodFill algorithm)
+  - `=>` done if a move can be made by calling some function. The move has to be a valid one, otherwise the correct error message get's displayed. In case of uncovering an empty cell, the [floodFill](https://en.wikipedia.org/wiki/Flood_fill) algorithm is used to recursively uncover neighbouring number cells
 
 - 🟡 when printing a board, display a line to seperate between the coordinates and the actual board content
 - ✅ remove EmptyCell() and match for Number(0) in printRow instead?
@@ -75,6 +77,8 @@ To organize/structure the project, the next steps I want to do will always be ad
   - use updateAt function in updateCell
   - `=>` done if an example board can be printed in the terminal correctly and cells can be updated
 
+---
+
 ### Rest of the project:
 
 - maintain two boards: one to store the solution in, one for the current state of the player
@@ -93,6 +97,8 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - remove EmptyCell() and match for Number(0) in printRow instead?
 
+- in generateBoard effect to generate player board?
+
 ---
 
 - possible property tests:
@@ -100,3 +106,4 @@ To organize/structure the project, the next steps I want to do will always be ad
   - a player board can't have a Mine on it (bc then the game should already be lost)
   - as soon as a Cell containing a Mine is revealed, the game is lost
   - mine counting works correctly
+  - flood fill works correctly

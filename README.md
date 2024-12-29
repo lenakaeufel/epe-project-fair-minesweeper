@@ -135,3 +135,4 @@ Libraries:
 - [patterns](https://minesweeper.online/de/help/patterns) (to be used in solver/for hints?!)
 - [example implementation](https://www.geeksforgeeks.org/cpp-implementation-minesweeper-game/) of minesweeper in C++
 - for the implementation: maintain two boards: one that's displayed to the player, including all of his moves so far and one that can't change (except for maintaining the rules of fair minesweeper, first move) and holds the solution with all hidden mines
+- [minesweeper task for comparison](https://itp.uni-frankfurt.de/~mwagner/teaching/C_WS17/projects/Minesweeper.pdf)

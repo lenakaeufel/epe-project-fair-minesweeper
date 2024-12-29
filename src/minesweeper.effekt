@@ -26,6 +26,12 @@ type CellState {
 
 type Board = List[List[CellState]]
 
+type Action {
+  AddFlag();
+  RemoveFlag();
+  Uncover()
+}
+
 // prints the row of a board while translating the CellState Types to the corresponding string representation/symbol
 // if a there aren't any mines around a cell, the field is displayed as an empty field (-)
 def printRow(row: List[CellState]): String = {
@@ -113,6 +119,10 @@ def generateBoard(size: Int, numMines: Int): Board/{invalidInput} = {
   board
 }
 
+def generatePlayerBoard(size: Int): Board = {
+  fill[List[CellState]](size, fill[CellState](size, Hidden())) 
+}
+
 // count the number of mines surrounding a cell (max: 8)
 def countAdjacentMines(board: Board, row: Int, col: Int): Int = {
   val size = board.size
@@ -147,33 +157,131 @@ def isMine(board: Board, row: Int, col: Int): Bool = {
   }
 }
 
+// validate a given move of the player by comparing the desired move to the current player board
+def isValidMove(board: Board, row: Int, col: Int, action: Action): Bool/{invalidInput} = {
+  if(isValidIndex(board.size, row, col) == false){
+    do invalidInput("invalid input: the coordinates of the given input are not within the board")
+    false
+  } 
+  else {// index is valid for board
+    with on[OutOfBounds].panic
+    val cellState = board.get(row).get(col)
+    cellState match {
+      case Hidden() => {action match {
+        case RemoveFlag() => do invalidInput("invalid input: cell isn't flagged and therefore can't be unflagged"); false
+        case _ => true
+      }}
+      case Number(n) => do invalidInput("invalid input: cells already uncovered can't be modified"); false
+      case Flag() => {action match {
+        case AddFlag() => do invalidInput("invalid input: cell is already flagged and therefore can't be flagged again"); false
+        case RemoveFlag() => true
+        case Uncover() => true
+      }}
+      case Mine() => do invalidInput("TODO, Mine on player's board not possible, something went wrong"); false
+    }
+  }
+}
 
-/*val exampleBoard2x2: Board = [
-  [EmptyCell(), Number(1)],
-  [Flag(), EmptyCell()]
+// recursive algorithm to uncover multiple cells at once based on one move and return the resulting Board
+// assuming the move of the first call of floodFill is a valid one
+def floodFill(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int, Int)]): Board = {
+  if(visited.any{el => el.first == row && el.second == col}) playerBoard
+  else {
+    with on[OutOfBounds].panic
+    solutionBoard.get(row).get(col) match {
+      case Number(0) => // If the cell has no adjacent mines, continue flood-fill
+        val newVisited = visited.append([(row, col)])
+        val newBoard = playerBoard.updateCell(row, col, Number(0)) // Replace with uncovered
+        val dx = [-1, -1, -1, 0, 0, 1, 1, 1]
+        val dy = [-1, 0, 1, -1, 1, -1, 0, 1]
+        var validCells = []
+        each(0,8){ n => 
+          val newRow = row + dx.get(n)
+          val newCol = col + dy.get(n)
+          if(isValidIndex(playerBoard.size, newRow, newCol) == true) {
+            validCells = validCells.append([(newRow, newCol)])
+          }
+        }
+        validCells.foldLeft(newBoard) { (currentBoard, d) => floodFill(currentBoard, solutionBoard, d.first, d.second, newVisited)}
+      case Number(n) => playerBoard.updateCell(row, col, solutionBoard.get(row).get(col))
+        // Stop flood-fill at numbered fields, but uncover the cell
+      case _ => playerBoard // Stop flood-fill at mines or hidden/ flagged cells, letting them stay hidden
+    }
+  }
+}
+
+// perform the given move by returning the new Board after the given move
+// uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
+def makeMove(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, action: Action): Board = {
+  var newPlayerBoard = playerBoard
+  try {
+    if(isValidMove(playerBoard, row, col, action) == false){
+      playerBoard
+    } else {
+      with on[OutOfBounds].panic
+      val cellState = solutionBoard.get(row).get(col)
+      action match {
+        case AddFlag() => newPlayerBoard = newPlayerBoard.updateCell(row, col, Flag())
+        case RemoveFlag() => newPlayerBoard = newPlayerBoard.updateCell(row, col, Hidden())
+        case Uncover() => newPlayerBoard = newPlayerBoard.floodFill(solutionBoard, row, col, [])
+      }
+      newPlayerBoard
+    }
+  } with invalidInput{ m =>
+    println(m)
+    playerBoard
+  }
+}
+
+val exampleBoard2x2: Board = [
+  [Number(0), Number(1)],
+  [Flag(), Number(0)]
 ]
 
 val exampleBoard4x4: Board = [
-  [EmptyCell(), Number(1), Mine(), Flag()],
-  [Flag(), EmptyCell(), Number(2), Number(3)],
-  [EmptyCell(), EmptyCell(), Number(2), EmptyCell()],
-  [EmptyCell(), Flag(), Mine(), EmptyCell()]
+  [Number(0), Number(1), Mine(), Flag()],
+  [Flag(), Number(0), Number(2), Number(3)],
+  [Number(0), Number(0), Number(2), Number(0)],
+  [Number(0), Flag(), Mine(), Number(0)]
 ]
 
 val examplePlayerBoard4x4: Board = [
-  [EmptyCell(), Number(1), Hidden(), Hidden()],
-  [Flag(), EmptyCell(), Number(2), Number(3)],
-  [EmptyCell(), EmptyCell(), Number(2), EmptyCell()],
-  [EmptyCell(), Flag(), Hidden(), EmptyCell()]
-]*/
+  [Number(0), Number(1), Hidden(), Hidden()],
+  [Flag(), Number(0), Number(2), Number(3)],
+  [Number(0), Number(0), Number(2), Number(0)],
+  [Number(0), Flag(), Hidden(), Number(0)]
+]
+
+val exampleSolutionBoard: Board = [
+  [Number(1), Number(1), Number(1), Number(0)],
+  [Number(1), Mine(), Number(1), Number(0)],
+  [Number(1), Number(1), Number(2), Number(1)],
+  [Number(0), Number(0), Number(1), Mine()]
+]
 
 def main(): Unit = {
-  //printBoard(examplePlayerBoard4x4)
-  //printBoard(examplePlayerBoard4x4.updateCell(0, 3, Flag()))
-  try{
-    printBoard(generateBoard(5,3))
-  } with invalidInput{m =>
-  println(m)}
+  val solutionBoard = exampleSolutionBoard
+  printBoard(solutionBoard)
+  var playerBoard = generatePlayerBoard(solutionBoard.size)
+  printBoard(playerBoard)
+
+  playerBoard = playerBoard.makeMove(solutionBoard, 0, 3, Uncover())
+  printBoard(playerBoard)
+
+  playerBoard = playerBoard.makeMove(solutionBoard, 0, 1, RemoveFlag())
+  printBoard(playerBoard)
+
+  playerBoard = playerBoard.makeMove(solutionBoard, 0, 1, AddFlag())
+  printBoard(playerBoard)
+
+  playerBoard = playerBoard.makeMove(solutionBoard, 0, 1, RemoveFlag())
+  printBoard(playerBoard)
+
+  playerBoard = playerBoard.makeMove(solutionBoard, 1, 1, AddFlag())
+  printBoard(playerBoard)
+
+  playerBoard = playerBoard.makeMove(solutionBoard, 0, 3, Uncover())
+  printBoard(playerBoard)
 }
 
 
