@@ -68,3 +68,4 @@ To organize/structure the project, the next steps I want to do will always be ad
   - only player boards can have hidden cells
   - a player board can't have a Mine on it (bc then the game should already be lost)
   - as soon as a Cell containing a Mine is revealed, the game is lost
+  - mine counting works correctly

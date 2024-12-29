@@ -12,8 +12,7 @@ extern js"""
 extern def randomInt(minInclusive: Int, maxExclusive: Int): Int =
   js"getRandomInt(${minInclusive}, ${maxExclusive})"
 
-
-val BOARDSIZE: Int = 4
+effect invalidInput(msg: String): Unit
 
 // custom type to represent the state of a cell of the Board
 // Invariants: Player board has only Hidden, Number and Flag cells
@@ -44,13 +43,15 @@ def printRow(row: List[CellState]): String = {
   out
 }
 
+// prints a given board in a nice way
 def printBoard(board: Board): Unit = {
+  val boardsize = board.size
   var rowIndices = "   "
-  each(0, BOARDSIZE) {n =>
+  each(0, boardsize) {n =>
     rowIndices = rowIndices ++ show(n) ++ "  "
   }
   println(rowIndices)
-  each(0, BOARDSIZE) {n =>
+  each(0, boardsize) {n =>
     with on[OutOfBounds].panic
     val row: List[CellState] = board.get(n)
     val s: String = printRow(row)
@@ -59,17 +60,25 @@ def printBoard(board: Board): Unit = {
   println("")
 }
 
+// update the state of a cell at index [row_index][col_index] with the given new state
+// updating here means returns a new board with the updated cell
 def updateCell(board: Board, row_index: Int, col_index: Int, state: CellState): Board = {
   board.updateAt(row_index){r =>
     r.updateAt(col_index){s => state}}
 }
 
-def generateBoard(size: Int, numMines: Int): Board = {
-  /*if(numMines > size){
-    val out = [[EmptyCell(), Number(1)], [Flag(), EmptyCell()]]
-    //println("Invalid Board") // TODO: use effect here
-    out
-  }*/
+// generates a new board by placing the given number of mines randomly on a new board of given size
+// all cells not containing a mine will be Number() cells holding the number of mines surrounding the cell
+def generateBoard(size: Int, numMines: Int): Board/{invalidInput} = {
+  if(numMines > size*size){
+    do invalidInput("invalid input: number of mines mustn't exceed the number of cells")
+  }
+  if(size < 1){
+    do invalidInput("invalid input: size must be a positive number")
+  }
+  if(numMines < 0){
+    do invalidInput("invalid input: number of mines musn't be negative")
+  }
   with on[OutOfBounds].panic
   var board: Board = fill[List[CellState]](size, fill[CellState](size, EmptyCell())) 
 
@@ -98,11 +107,12 @@ def generateBoard(size: Int, numMines: Int): Board = {
       }
     }
   }
-
   board
 }
 
+// count the number of mines surrounding a cell (max: 8)
 def countAdjacentMines(board: Board, row: Int, col: Int): Int = {
+  val size = board.size
   var count = 0
   val dx = [-1, -1, -1, 0, 0, 1, 1, 1]
   val dy = [-1, 0, 1, -1, 1, -1, 0, 1]
@@ -111,7 +121,7 @@ def countAdjacentMines(board: Board, row: Int, col: Int): Int = {
   each(0,8){ n => 
     val newRow = row + dx.get(n)
     val newCol = col + dy.get(n)
-    if(isValidIndex(newRow, newCol) == true) {
+    if(isValidIndex(size, newRow, newCol) == true) {
       if(isMine(board, newRow, newCol) == true){
         count = count + 1
       }
@@ -120,10 +130,12 @@ def countAdjacentMines(board: Board, row: Int, col: Int): Int = {
   count
 }
 
-def isValidIndex(row: Int, col: Int): Bool = {
-  (row >= 0) && (row < BOARDSIZE) && (col >= 0) && (col < BOARDSIZE)
+// check if a given index [row][col] is a valid index on an arbitrary board of given size
+def isValidIndex(size: Int, row: Int, col: Int): Bool = {
+  (row >= 0) && (row < size) && (col >= 0) && (col < size)
 }
 
+// check if a cell with index [row][col] on a given board is a mine
 def isMine(board: Board, row: Int, col: Int): Bool = {
   with on[OutOfBounds].panic
   board.get(row).get(col) match {
@@ -131,8 +143,6 @@ def isMine(board: Board, row: Int, col: Int): Bool = {
     case _ => false
   }
 }
-
-
 
 
 val exampleBoard2x2: Board = [
@@ -155,9 +165,12 @@ val examplePlayerBoard4x4: Board = [
 ]
 
 def main(): Unit = {
-  printBoard(examplePlayerBoard4x4)
-  printBoard(examplePlayerBoard4x4.updateCell(0, 3, Flag()))
-  printBoard(generateBoard(4,2))
+  //printBoard(examplePlayerBoard4x4)
+  //printBoard(examplePlayerBoard4x4.updateCell(0, 3, Flag()))
+  try{
+    printBoard(generateBoard(5,3))
+  } with invalidInput{m =>
+  println(m)}
 }
 
 
