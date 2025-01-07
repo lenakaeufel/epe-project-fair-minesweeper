@@ -1,0 +1,27 @@
+import src/minesweeper
+
+val exampleBoard2x2: Board = [
+  [Number(0), Number(1)],
+  [Flagged(), Number(0)]
+]
+
+val exampleBoard4x4: Board = [
+  [Number(0), Number(1), Mine(), Flagged()],
+  [Flagged(), Number(0), Number(2), Number(3)],
+  [Number(0), Number(0), Number(2), Number(0)],
+  [Number(0), Flagged(), Mine(), Number(0)]
+]
+
+val examplePlayerBoard4x4: Board = [
+  [Number(0), Number(1), Hidden(), Hidden()],
+  [Flagged(), Number(0), Number(2), Number(3)],
+  [Number(0), Number(0), Number(2), Number(0)],
+  [Number(0), Flagged(), Hidden(), Number(0)]
+]
+
+val exampleSolutionBoard: Board = [
+  [Number(1), Number(1), Number(1), Number(0)],
+  [Number(1), Mine(), Number(1), Number(0)],
+  [Number(1), Number(1), Number(2), Number(1)],
+  [Number(0), Number(0), Number(1), Mine()]
+]

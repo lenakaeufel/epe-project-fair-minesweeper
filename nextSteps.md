@@ -8,20 +8,45 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 🟡 = works for now but improvements planned
 
-### Fifth Week: 24.12. - 30.12.2024
+### Sixth Week: 07.01. - 13.01.2025
 
-- ❌ add functionality to win/loose the game
+- ❌ Restarting the Game:
 
-  - game over when uncovering a mine -> display message, return to landing screen
-  - won when all cells without a mine are uncovered -> display message, return to landing screen
+  - after a Game was lost/won, ask if user wants to play again instead of immediately quitting the game
+  - add possibility to restart the game (as an action, e.g. "press r to restart the game") during a running game
+  - clear the terminal after a restart
+
+- ❌ implement Fair rules:
+
+  1. If the user, judging by the state of the board, could not be sure that a mine was not on any square,
+     a mine is not on that square after uncovering any square
+  2. Conversely, if the user could have been certain that a mine was not on any square, but still
+     uncovered a square on which he could not have been certain, the mine is on that square
+
+- ❌ implement solver
+
+### Fifth Week: 24.12. - 30.12.2024 and Holidays until 06.01.2025
+
+- 🛠️ Problem with Represenation of the Board:
+
+  - what is best representation??
+  - with the current representation (Number(n), Hidden, Mine, Flag) problem: weird that solution and player board have the same type but only use subsets of the possible CellStates. Could be problematic when including the fair rules (need information on which cells of the board are already still hidden when we modify solution board, but solution board doesn't have information on hidden cells)
+  - two different data types one for player board and one for solution board seems like a bad solution for this problem (need printing,... functions for both types -> lots of duplicate code)
+  - adding booleans for hidden and flagged cells and make only possibilities for CellState Number and Mine seems like a better solution regarding passed information and makes more sense, but we have to match for many different cases -> code get's more complicated/less readable (e.g. instead of Hidden() we see Number(...,true,...))
+  - any other, better solution?
+
+- ✅ add functionality to win/loose the game
+
+  - game over when uncovering a mine -> display message, ❌ ask to return to landing screen/quit
+  - won when all cells without a mine are uncovered -> display message, ❌ ask to return to landing screen/quit
   - `=>` done if winning/loosing a game is working correctly
 
-- ❌ add interaction with the terminal:
+- 🟡 add interaction with the terminal:
 
-  - when starting the game, first some landing screen is displayed ("Welcome to Fair Minesweeper, to start a new game, press S on your keyboard")
-  - if S is pressed, generate a new board and display it to the user (here two representation, player board is only Hidden cells here)
+  - when starting the game, first some landing screen is displayed ("Welcome to Fair Minesweeper, to start a new game, press Enter on your keyboard")
+  - once Enter is pressed, generate a new board and display it to the user (here two representation, player board is only Hidden cells here)
   - display new message: "to make a move, press the corresponing keys:
-    a number greater/equal to 0 for row and col, an action out of [u(ncover),f(lag),r(emove flag)], q to quit the game (return to landing screen)"
+    a number greater/equal to 0 for row and col, an action out of [u(ncover),f(lag),r(emove flag)], q to quit the game"
   - "what's the row of your move?"-> player presses key
   - "what's the col of your move?"-> player presses key
   - "what action do you want to do?" -> player presses key
@@ -97,7 +122,19 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - remove EmptyCell() and match for Number(0) in printRow instead?
 
-- in generateBoard effect to generate player board?
+- in generateBoard: effect to generate player board?
+
+- improve (invalid input) messages
+
+- flood fill seems to be slow in some cases -> how to improve speed? (idea: when Set is available, use Set here?)
+
+- improve general look of the game (use "fancy" things of tty library, bold letters, colors,...)
+
+- use more effects where possible
+
+- write good Documentation
+
+- Clean up (shorter functions, move functions to separate files, improve names, ...)
 
 ---
 

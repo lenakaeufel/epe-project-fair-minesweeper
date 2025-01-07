@@ -1,0 +1,91 @@
+import tty
+
+effect invalidInput(msg: String): Unit
+effect gameOver(finalBoard: Board): Unit
+effect winGame(finalBoard: Board): Unit
+
+// custom type to represent the state of a cell of the Board
+// Invariants: Player board has only Hidden, Number and Flag cells
+//             Solution board has only Number and Mine cells
+type CellState {
+  Hidden(); // Hidden cells are only possible on the board of the player
+  Number(n: Int);
+  Mine(); // Mines won't be shown on the board of the player. If a cell with a mine isn't Hidden, the game is lost
+  Flagged() // Flagged cells are only possible on the board of the player
+}
+
+type Board = List[List[CellState]]
+
+type Action {
+  Flag();
+  Uncover()
+}
+
+type Command {
+  PerformAction(a: Action,x: Int, y: Int);
+  Help();
+  Quit()
+}
+
+val helpMessage = "To make an action, type one of the following: u to uncover, f to flag/unflag, h for help and q to quit the game"
+val wonMessage = """
+ __     ______  _    _    __          ______  _   _  
+ \ \   / / __ \| |  | |   \ \        / / __ \| \ | | 
+  \ \_/ / |  | | |  | |    \ \  /\  / / |  | |  \| | 
+   \   /| |  | | |  | |     \ \/  \/ /| |  | | . ` | 
+    | | | |__| | |__| |      \  /\  / | |__| | |\  | 
+    |_|  \____/ \____/        \/  \/   \____/|_| \_| 
+                                                     
+                                                     
+
+"""
+
+val gameOverMessage = """
+ __     ______  _    _     _      ____   _____ _______      __
+ \ \   / / __ \| |  | |   | |    / __ \ / ____|__   __|  _ / /
+  \ \_/ / |  | | |  | |   | |   | |  | | (___    | |    (_) | 
+   \   /| |  | | |  | |   | |   | |  | |\___ \   | |      | | 
+    | | | |__| | |__| |   | |___| |__| |____) |  | |     _| | 
+    |_|  \____/ \____/    |______\____/|_____/   |_|    (_) | 
+                                                           \_\
+                                                              
+"""
+
+// prints the row of a board while translating the CellState Types to the corresponding string representation/symbol
+// if a there aren't any mines around a cell, the field is displayed as an empty field (-)
+def printRow(row: List[CellState]): String = {
+  with Formatted::formatting;
+  var out: String = ""
+  row.foreach{ c =>
+    c match {
+      case Hidden() => out = out ++ "  " ++ Formatted::colored("H", Color::BLACK)
+      case Number(0) => out = out ++ Formatted::colored("  -", Color::CYAN)
+      case Number(n) => out = out ++ "  " ++ show(n)
+      case Mine() => out = out ++ Formatted::colored("  M", Color::YELLOW)
+      case Flagged() => out = out ++ "  F".red // toString('🚩') 
+    }
+  }
+  out
+}
+
+// prints a given board in a nice way
+def printBoard(board: Board): Unit = {
+  val boardsize = board.size
+  var rowIndices = "    "
+  var border = "  "
+  each(0, boardsize) {n =>
+    rowIndices = rowIndices ++ show(n) ++ "  "
+    border = border ++ "---"
+  }
+  println(rowIndices)
+  println(border)
+  each(0, boardsize) {n =>
+    with on[OutOfBounds].panic
+    val row: List[CellState] = board.get(n)
+    val s: String = printRow(row)
+    println(show(n) ++ "|" ++ s)   
+  }
+  println("")
+}
+
+
