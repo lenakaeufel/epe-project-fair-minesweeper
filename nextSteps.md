@@ -138,6 +138,13 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 ---
 
+### Weird bugs:
+
+- when size of the board is >= 11, the formatting becomes weird:
+  ![alt text](image-1.png)
+
+---
+
 - possible property tests:
   - only player boards can have hidden cells
   - a player board can't have a Mine on it (bc then the game should already be lost)

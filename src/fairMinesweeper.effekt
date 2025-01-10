@@ -120,42 +120,13 @@ def isValidMove(board: Board, row: Int, col: Int, action: Action): Bool/{invalid
   }
 }
 
-// recursive algorithm to uncover multiple cells at once based on one move and return the resulting Board
-// assuming the move of the first call of floodFill is a valid one
-def floodFill(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int, Int)]): Board = {
-  val dx = [-1, -1, -1, 0, 0, 1, 1, 1]
-  val dy = [-1, 0, 1, -1, 1, -1, 0, 1]
-  if(visited.any{el => el.first == row && el.second == col}) playerBoard
-  else {
-    with on[OutOfBounds].panic
-    val cellStateSolution = solutionBoard.get(row).get(col)
-    cellStateSolution match {
-      case Number(0) => // If the cell has no adjacent mines, continue flood-fill
-        val newVisited = visited.append([(row, col)]) // Cons
-        val newBoard = playerBoard.updateCell(row, col, Number(0)) // Replace with uncovered
-        
-        var validCells = []
-        each(0,8){ n => 
-          val newRow = row + dx.get(n)
-          // with val dx = ... (neighbours example stream library)
-          val newCol = col + dy.get(n)
-          if(isValidIndex(playerBoard.size, newRow, newCol) == true) {
-            validCells = validCells.append([(newRow, newCol)]) // Cons
-          }
-        }
-        validCells.foldLeft(newBoard) { (currentBoard, d) => floodFill(currentBoard, solutionBoard, d.first, d.second, newVisited)}
-      case Number(n) => playerBoard.updateCell(row, col, cellStateSolution)
-        // Stop flood-fill at numbered fields, but uncover the cell
-      case _ => playerBoard // Stop flood-fill at mines or hidden/ flagged cells, letting them stay hidden
-    }
-  }
-}
-
-def neighboursOf(boardSize: Int, pos: (Int,Int), radius: Int) = {
+def neighboursOf(boardSize: Int, pos: (Int,Int), radius: Int, visited: List[(Int,Int)]) = {
+  //println("Finding neighbors for position" ++ show(pos.first) ++ "," ++ show(pos.second))
   with val dx = for[Int] { range(neg(radius), radius + 1) }
   with val dy = for[Int] { range(neg(radius), radius + 1) }
   val newPosition = (pos.first + dx, pos.second + dy)
-  if(isValidIndex(boardSize,newPosition.first,newPosition.second)){
+  if(isValidIndex(boardSize,newPosition.first,newPosition.second) && ((dx == 0) && (dy == 0)) == false && visited.any{cell => ((cell.first == newPosition.first) && (cell.second == newPosition.second))} == false){
+    //println("  Emitting neighbor position: (" ++ show(newPosition.first) ++ "," ++ show(newPosition.second))
     do emit(newPosition)
   }
 }
@@ -166,192 +137,44 @@ def neighboursOf(boardSize: Int, pos: (Int,Int), radius: Int) = {
         if vertex w is not labeled as visited then
             recursively call DFS(G, w)*/
 
+// recursive algorithm to uncover multiple cells at once based on one move and return the resulting Board
+// assuming the move of the first call of floodFill is a valid one
+
 def floodFillFast(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int,Int)]): Board = {
-  // label v = (row,col) as visited:
-  //var newVisited = []
+  println("FloodFill called at position (" ++ show(row) ++ "," ++ show(col) ++ ")")
+  println("Current visited cells: " ++ genericShow(visited))
+  
   if(visited.any{cell => cell.first == row && cell.second == col}){// if current cell already visited
+    //println("  Cell already visited, returning current board")
     playerBoard// newVisited = visited // visited stays the same (acts like a Set)
-  } //else {newVisited = Cons((row, col), visited)} // if current cell not visited yet, mark it visited
+  } // if current cell not visited yet, mark it visited
   else{
+    //println("  Cell not visited yet, processing...")
   val newVisited = Cons((row, col), visited)
+  
   with on[OutOfBounds].panic
   val cellStateSolution = solutionBoard.get(row).get(col)
-  //with val neighbour = for[(Int,Int)] {neighboursOf(playerBoard.size,(row,col), 1)}
   val newBoard = playerBoard.updateCell(row, col, cellStateSolution)
   cellStateSolution match {
     case Number(0) => // If the cell has no adjacent mines, continue flood-fill
-      val neighbours: List[(Int,Int)] = collectList{neighboursOf(playerBoard.size,(row,col), 1)}
+      //println("  Found empty cell (0), getting neighbors...")
+      val neighbours: List[(Int,Int)] = collectList{neighboursOf(playerBoard.size,(row,col), 1, newVisited)}
+      //println("  Neighbors found: " ++ genericShow(neighbours))
       neighbours.foldLeft(newBoard){(currentBoard, cell) =>
   // handle cell (row,col) by modifying it on the board
+      //println("  Processing neighbor (" ++ show(cell.first) ++ "," ++ show(cell.second))
       floodFillFast(currentBoard, solutionBoard, cell.first, cell.second, newVisited)
       }
-    
-      
-               // Replace with uncovered
-         
-        //if(newVisited.any{c => c.first == cell.first && c.second == cell.second} == false){
-          
-
-        //} else{newBoard}
-      
-      //case Number(n) =>  playerBoard.updateCell(row, col, cellStateSolution) // TODO check
-        // Stop flood-fill at numbered fields, but uncover the cell
-      case _ => newBoard // TODO check Stop flood-fill at mines or hidden/ flagged cells, letting them stay hidden
-  }
+    case Number(n) => 
+        //println("  Found number cell ($n), stopping here")
+        newBoard
+      case _ => 
+        //println("  Found non-number cell, stopping here")
+        newBoard
+    }
   }
 }
 
-
-/*def floodFillFast(
-    playerBoard: Board,
-    solutionBoard: Board,
-    row: Int,
-    col: Int,
-    visited: List[(Int, Int)]
-): Board = {
-  // Check if out of bounds
-  if (row < 0 || col < 0 || row >= playerBoard.size || col >= playerBoard.size) {
-    playerBoard
-  }
-  else{
-
-  // Check if already visited
-  if (visited.any{el => el.first == row && el.second == col}) {
-    playerBoard
-  }
-  else{
-
-  // Mark the cell as visited
-  var newVisited = []
-  if(visited.any{el => el.first == row && el.second == col} == false){
-    newVisited = Cons((row, col),visited)
-  }
-  else{newVisited = visited}
-
-  // Get the cell state from the solution board
-  with on[OutOfBounds].panic
-  val cellStateSolution = solutionBoard.get(row).get(col)
-
-  cellStateSolution match {
-    case Number(0) =>
-      // Uncover the cell on the player's board
-      val updatedBoard = playerBoard.updateCell(row, col, Number(0))
-
-      // Recursively process all neighboring cells
-      val directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-      directions.foldLeft(updatedBoard) { (currentBoard, dir) =>
-        val (dx, dy) = dir
-        floodFillFast(currentBoard, solutionBoard, row + dx, col + dy, newVisited)
-      }
-
-    case Number(n) =>
-      // Uncover the cell with its number on the player's board
-      val updatedBoard = playerBoard.updateCell(row, col, Number(n))
-      updatedBoard
-
-    case _ =>
-      // Stop flood-fill if it's a mine
-      //println(s"Hit a mine at ($row, $col)! Game over.")
-      playerBoard
-  }}}
-}*/
-
-/*
-def floodFillFast(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int, Int)]): Board = {
-  val dx = [-1, -1, -1, 0, 0, 1, 1, 1]
-  val dy = [-1, 0, 1, -1, 1, -1, 0, 1]
-  println(genericShow(visited))
-  if(isValidIndex(playerBoard.size,row, col) == false || visited.any{el => el.first == row && el.second == col}) {println("playerBoard"); playerBoard}
-  else {
-    println("2 here")
-    with on[OutOfBounds].panic
-    if (isValidIndex(playerBoard.size, row, col) == false) {playerBoard}
-    else{
-    val cellStateSolution = solutionBoard.get(row).get(col)
-    cellStateSolution match {
-      case Number(0) => // If the cell has no adjacent mines, continue flood-fill
-      println("3 here")
-        val newVisited = Cons((row,col), visited)
-        val newBoard = playerBoard.updateCell(row, col, Number(0)) // Replace with uncovered
-        
-        //var validCells = []
-        val directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-        println("HERE")
-          directions.foldLeft(newBoard) { (currentBoard, d) =>
-            floodFillFast(currentBoard, solutionBoard, row + d.first, col + d.second, newVisited)
-          }
-        //validCells.foldLeft(newBoard) { (currentBoard, d: (Int,Int)) => floodFillFast(currentBoard, solutionBoard, d.first, d.second, newVisited)}
-      case Number(n) => println("4 here"); playerBoard.updateCell(row, col, cellStateSolution)
-        // Stop flood-fill at numbered fields, but uncover the cell
-      case _ => println("5 here"); playerBoard // Stop flood-fill at mines or hidden/ flagged cells, letting them stay hidden
-    }
-  }}
-}*/
-
-/*
-def floodFillFast(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int, Int)]): Board = {
-  def isValidMove(r: Int, c: Int): Bool = {
-    isValidIndex(playerBoard.size, r, c) && visited.any{el => el.first == r && el.second == c} == false
-  }
-  
-  if (isValidMove(row, col) == false) { playerBoard }
-  else {
-    with on[OutOfBounds].panic
-    val cellStateSolution = solutionBoard.get(row).get(col)
-    val newVisited = Cons((row,col), visited)
-    val updatedBoard = playerBoard.updateCell(row, col, cellStateSolution)
-    
-    cellStateSolution match {
-      case Number(0) => 
-        val neighbors = [
-          (row - 1,col- 1), (row- 1,col), (row- 1,col+1),
-          (row,col- 1),                 (row,col+1),
-          (row+1,col- 1), (row+1,col), (row+1,col+1)
-        ]
-        
-        neighbors.foldLeft(updatedBoard) { (board, pos) =>
-          if (isValidMove(pos.first, pos.second)) {
-            floodFillFast(board, solutionBoard, pos.first, pos.second, newVisited)
-          } else {
-            board
-          }
-        }
-        
-      case _ => updatedBoard
-    }
-  }
-}*/
-
-
-/*
-def floodFillFast(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int, Int)]): Board = {
-  if(visited.any{el => el.first == row && el.second == col}) playerBoard
-  else {
-    with on[OutOfBounds].panic
-    val cellStateSolution = solutionBoard.get(row).get(col)
-    cellStateSolution match {
-      case Number(0) => // If the cell has no adjacent mines, continue flood-fill
-        //val newVisited = visited.append([(row, col)]) // Cons
-        val rc: (Int, Int) = (row, col)
-        val newVisited: List[(Int,Int)] = Cons(rc,visited)
-        val newBoard = playerBoard.updateCell(row, col, Number(0)) // Replace with uncovered
-        with val dx = for[Int] { range(neg(1), 2) }
-        with val dy = for[Int] { range(neg(1), 2) }
-        
-        var validCells = []
-           //with val dx = ... (neighbours example stream library)
-          if(isValidIndex(playerBoard.size, dx, dy) == true) {
-            //validCells = validCells.append([(dx, dy)]) // Cons
-            validCells = Cons((dx, dy),validCells)
-          }
-        validCells.foldLeft(newBoard) { (currentBoard, d: (Int,Int)) => 
-          floodFillFast(currentBoard, solutionBoard, d.first, d.second, newVisited)}
-      case Number(n) => playerBoard.updateCell(row, col, cellStateSolution)
-        // Stop flood-fill at numbered fields, but uncover the cell
-      case _ => playerBoard // Stop flood-fill at mines or hidden/ flagged cells, letting them stay hidden
-    }
-  }
-}*/
 
 // perform the given move by returning the new Board after the given move
 // uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
@@ -475,46 +298,8 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
 }
 
 
-val exampleSolutionBoard: Board = [
-  [Number(1), Number(1), Number(1), Number(0)],
-  [Number(1), Mine(), Number(1), Number(0)],
-  [Number(1), Number(1), Number(2), Number(1)],
-  [Number(0), Number(0), Number(1), Mine()]
-]
-
 def main(): Unit = {
-  /*val solutionBoard = exampleSolutionBoard
-  printBoard(solutionBoard)
-  var playerBoard = generatePlayerBoard(solutionBoard.size)
-  printBoard(playerBoard)
-  try{
-  playerBoard = playerBoard.makeMove(solutionBoard, 0, 3, Uncover())
-  printBoard(playerBoard)
-
-  playerBoard = playerBoard.makeMove(solutionBoard, 0, 1, Flag())
-  printBoard(playerBoard)
-
-  playerBoard = playerBoard.makeMove(solutionBoard, 0, 1, Flag())
-  printBoard(playerBoard)
-
-  playerBoard = playerBoard.makeMove(solutionBoard, 0, 1, Flag())
-  printBoard(playerBoard)
-
-  playerBoard = playerBoard.makeMove(solutionBoard, 1, 1, Flag())
-  printBoard(playerBoard)
-
-  playerBoard = playerBoard.makeMove(solutionBoard, 0, 3, Uncover())
-  printBoard(playerBoard)
-
-  playerBoard = playerBoard.makeMove(solutionBoard, 3, 3, Uncover())
-  printBoard(playerBoard)
-
-  playMinesweeper(4,2)
-  } with gameOver{b =>
-  println(gameOverMessage)
-  println("This is the solution board:")
-  printBoard(b)}*/
-  playMinesweeper(10,2)
+  playMinesweeper(5,2)
 }
 
 
