@@ -1,4 +1,15 @@
 import tty
+import stream
+
+extern def log10(n: Double): Double = 
+  js"Math.log10(${n})"
+
+def count_digits(number: Int): Int = {
+  val n: Double = number.toDouble
+  if(n == 0.0) 1
+  else floor(log10(abs(n))) + 1
+}
+    
 
 effect invalidInput(msg: String): Unit
 effect gameOver(finalBoard: Board): Unit
@@ -51,9 +62,38 @@ val gameOverMessage = """
                                                               
 """
 
+record LengthMismatch()
+
+def leftPadE(s: String, desiredLength: Int, padding: Char): String / Exception[LengthMismatch] = {
+  val actualLength = s.length
+  if (actualLength > desiredLength) {
+    do raise(LengthMismatch(), "Given string is longer than desired length!")
+  }
+
+  val prefix: String = collectString {
+    with replicate(desiredLength - actualLength)
+    padding
+  }
+  prefix ++ s
+}
+
+def leftPad(s: String, desiredLength: Int, padding: Char): String = {
+  val actualLength = s.length
+
+  val prefix: String = collectString {
+    with replicate(desiredLength - actualLength)
+    padding
+  }
+  prefix ++ s
+}
+
+def leftPadZeros(n: Int, desiredLength: Int) =
+  n.show.leftPad(desiredLength, ' ')
+
+
 // prints the row of a board while translating the CellState Types to the corresponding string representation/symbol
 // if a there aren't any mines around a cell, the field is displayed as an empty field (-)
-def printRow(row: List[CellState]): String = {
+def printRowold(row: List[CellState]): String = {
   with Formatted::formatting;
   var out: String = ""
   row.foreach{ c =>
@@ -69,7 +109,7 @@ def printRow(row: List[CellState]): String = {
 }
 
 // prints a given board in a nice way
-def printBoard(board: Board): Unit = {
+def printBoardold(board: Board): Unit = {
   val boardsize = board.size
   var rowIndices = "    "
   var border = "  "
@@ -82,10 +122,63 @@ def printBoard(board: Board): Unit = {
   each(0, boardsize) {n =>
     with on[OutOfBounds].panic
     val row: List[CellState] = board.get(n)
-    val s: String = printRow(row)
+    val s: String = printRowold(row)
     println(show(n) ++ "|" ++ s)   
   }
   println("")
 }
 
+// prints the row of a board while translating the CellState Types to the corresponding string representation/symbol
+// if a there aren't any mines around a cell, the field is displayed as an empty field (-)
+def printRow(row: List[CellState], cellWidth: Int): String = {
+  with Formatted::formatting;
+  val cW = 2  // TODO
+  val space = "".leftPad(cW,' ')
+  var out: String = ""
+  row.foreach{ c =>
+    c match {
+      case Hidden() => out = out ++ Formatted::colored("H", Color::BLACK) ++ space 
+      case Number(0) => out = out ++ Formatted::colored("-", Color::CYAN) ++ space
+      case Number(n) => out = out ++ show(n) ++ space
+      case Mine() => out = out ++ Formatted::colored("M", Color::YELLOW) ++ space
+      case Flagged() => out = out ++ "F".red ++ space // toString('🚩') 
+    }
+  }
+  out
+}
 
+
+// prints a given board in a nice way
+def printBoard(board: Board): Unit = {
+  val boardsize = board.size
+  val maxIndexDigits = count_digits(boardsize)
+  val cellWidth: Int = maxIndexDigits + 1
+
+  // build the header row and the header border
+  var colIndices = " ".repeat(cellWidth) // TODO check for different sizes
+
+  var border = " ".repeat(maxIndexDigits + 2)
+  each(0, boardsize) {n =>
+    val paddedIndex = leftPad(show(n), 3, ' ') //show(n) ++ " ".repeat(2)
+    colIndices = colIndices ++ paddedIndex
+    border = border ++ "-".repeat(3)
+  }
+  println(colIndices)
+  println(border)
+
+  // print the rows
+  each(0, boardsize) {n =>
+    with on[OutOfBounds].panic
+    val row: List[CellState] = board.get(n)
+    val s: String = printRow(row, cellWidth)
+
+    // Pad the row index for alignment
+    val paddedRowIndex = leftPad(show(n), maxIndexDigits, ' ')
+    println(paddedRowIndex ++ " | " ++ s)
+  }
+  println("")
+}
+
+def main() = {
+  println(show(count_digits(0)))
+}

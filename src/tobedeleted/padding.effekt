@@ -1,0 +1,35 @@
+import stream
+record LengthMismatch()
+
+def leftPadE(s: String, desiredLength: Int, padding: Char): String / Exception[LengthMismatch] = {
+  val actualLength = s.length
+  if (actualLength > desiredLength) {
+    do raise(LengthMismatch(), "Given string is longer than desired length!")
+  }
+
+  val prefix: String = collectString {
+    with replicate(desiredLength - actualLength)
+    padding
+  }
+  prefix ++ s
+}
+
+def leftPad(s: String, desiredLength: Int, padding: Char): String = {
+  val actualLength = s.length
+
+  val prefix: String = collectString {
+    with replicate(desiredLength - actualLength)
+    padding
+  }
+  prefix ++ s
+}
+
+def leftPadZeros(n: Int, desiredLength: Int) =
+  n.show.leftPad(desiredLength, ' ')
+
+def main() = {
+  with on[LengthMismatch].report
+  println(42.leftPadZeros(4))
+  println(0.leftPadZeros(4))
+  println(1000.leftPadZeros(4))
+}

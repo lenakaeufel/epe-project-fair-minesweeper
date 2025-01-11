@@ -41,7 +41,9 @@ To organize/structure the project, the next steps I want to do will always be ad
     - replacableCells: finds first cell that can hold a mine and outputs it's index or throws effect if there is none
     - replaceMine: run replaceableCell. If it returns a position, place the mine that's being replaced onto that new position, updating all the cells around it (neighboursOf). If there is no position (replacableCells throwing), for now just remove the mine from the current cell and don't place it anywhere else -> there is now one mine less in the game. Not perfect, but currently don't know better way and should not happen very often
 
-- 🛠️ fix representation of the board for numbers with multiple digits
+- 🟡 fix representation of the board for numbers with multiple digits
+
+  - it works but the code is horrible :D -> still TODO: cleanup, idendify magic literals
 
 - 🟡 fix flood fill
   - flood fill only worked for small board (size 4). For bigger boards it seemed to be stuck in an infinite loop
@@ -159,11 +161,13 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - Clean up (shorter functions, move functions to separate files, improve names, ...)
 
+- Clean up printBoard
+
 ---
 
 ### (Weird) bugs:
 
-- 🛠️ when size of the board is >= 11, the formatting becomes weird:
+- ✅ when size of the board is >= 11, the formatting becomes weird:
   ![alt text](image-1.png)
 - ✅ floodFill doesn't terminate for bigger boards (fixed, but still don't know why it worked for small board..)
 
