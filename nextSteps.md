@@ -16,6 +16,8 @@ To organize/structure the project, the next steps I want to do will always be ad
   - add possibility to restart the game (as an action, e.g. "press r to restart the game") during a running game
   - clear the terminal after a restart
 
+- ❌ implement solver
+
 - ❌ implement Fair rules:
 
   1. If the user, judging by the state of the board, could not be sure that a mine was not on any square,
@@ -23,7 +25,26 @@ To organize/structure the project, the next steps I want to do will always be ad
   2. Conversely, if the user could have been certain that a mine was not on any square, but still
      uncovered a square on which he could not have been certain, the mine is on that square
 
-- ❌ implement solver
+  - ideas on how to implement this:
+  - replacing mines: the only possible cells on which we can place a new mine are cells that Hidden are surrounded only by cells that are Hidden themselves. Otherwise the player would notice we've changed the board which is giving him hints we don't want to give
+  - when do we need to replace a mine:
+    1. if it's the first move and there's a mine on the picked cell (TODO: check if this has to be special case)
+    2. if for none of the covered cells the user can be sure there is no mine on it (e.g. computing probability of being a mine for each Hidden cell that is a direct neighbor of an uncovered cell. If none of these probabilities is 0%, we can't be sure where the mine is. So here, if the mine is on the cell the user tries to uncover, we have to replace it by a not mine cell.) -> fair rule `1`
+  - fair rule `2`: compute the probabilities again, if one is 0% but the user picked one that is not 0, the mine is on that square -> the user looses (special case of game over, tell the user the fair rule was used and highlight the cell that should have been uncovered instead (had probability 0))
+  - needed functions and functionality:
+    - determine the first move
+    - compute probability of a cell being a mine:
+    - interestingCells: find the cells that are uncovered and have at least on Hidden neighbour
+    - candidateCells: finds the cells that are Hidden and direct neighbors of uncovered Cells
+    - generateRules: generate Rules out of the candidate Cells. A rule is of form Rule(numMines: Int, candidates: Set[Cell]) where numMines comes from one of the already uncovered cells (so the number of rules generated is always the same as the number of uncovered cells surrounded by at least on hidden cell (= interestingCell)) and is the number of mines that has distributed by the candidates
+    - computeProbabilites: looks at all of the generatedRules and computes the probability for each candidate Cell being a mine. Output is of the form List[coordinate: (Int,Int), probability: Double[0,1]]
+    - replacableCells: finds first cell that can hold a mine and outputs it's index or throws effect if there is none
+    - replaceMine: run replaceableCell. If it returns a position, place the mine that's being replaced onto that new position, updating all the cells around it (neighboursOf). If there is no position (replacableCells throwing), for now just remove the mine from the current cell and don't place it anywhere else -> there is now one mine less in the game. Not perfect, but currently don't know better way and should not happen very often
+
+- 🟡 fix flood fill
+  - flood fill only worked for small board (size 4). For bigger boards it seemed to be stuck in an infinite loop
+  - the problem causing this was that the list of visited cells was reset for each new recoursive call
+  - `=>`it now works, but the game now takes ~ 30 seconds to start which is too long -> how to speed this up?
 
 ### Fifth Week: 24.12. - 30.12.2024 and Holidays until 06.01.2025
 

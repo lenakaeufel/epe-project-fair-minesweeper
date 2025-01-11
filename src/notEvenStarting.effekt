@@ -139,7 +139,7 @@ def neighboursOf(boardSize: Int, pos: (Int,Int), radius: Int, visited: List[(Int
 
 // recursive algorithm to uncover multiple cells at once based on one move and return the resulting Board
 // assuming the move of the first call of floodFill is a valid one
-/*
+
 def wrapper(playerBoard: Board, solutionBoard: Board, row: Int, col: Int): Board = {
   var v: List[(Int,Int)] = []
 
@@ -180,8 +180,8 @@ def wrapper(playerBoard: Board, solutionBoard: Board, row: Int, col: Int): Board
       }
     }
     floodFill(playerBoard, solutionBoard, row, col)
-}*/
-
+}
+/*
 def wrapper(playerBoard: Board, solutionBoard: Board, row: Int, col: Int): Board = {
   var v: List[(Int,Int)] = []
 
@@ -222,7 +222,7 @@ def wrapper(playerBoard: Board, solutionBoard: Board, row: Int, col: Int): Board
       }
     }
     playerBoard
-}
+}*/
 
 
 // perform the given move by returning the new Board after the given move
