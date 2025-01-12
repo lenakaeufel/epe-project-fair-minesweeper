@@ -18,7 +18,7 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - ❌ implement solver
 
-- ❌ implement Fair rules:
+- 🛠️ implement Fair rules:
 
   1. If the user, judging by the state of the board, could not be sure that a mine was not on any square,
      a mine is not on that square after uncovering any square
@@ -32,14 +32,14 @@ To organize/structure the project, the next steps I want to do will always be ad
     2. if for none of the covered cells the user can be sure there is no mine on it (e.g. computing probability of being a mine for each Hidden cell that is a direct neighbor of an uncovered cell. If none of these probabilities is 0%, we can't be sure where the mine is. So here, if the mine is on the cell the user tries to uncover, we have to replace it by a not mine cell.) -> fair rule `1`
   - fair rule `2`: compute the probabilities again, if one is 0% but the user picked one that is not 0, the mine is on that square -> the user looses (special case of game over, tell the user the fair rule was used and highlight the cell that should have been uncovered instead (had probability 0))
   - needed functions and functionality:
-    - determine the first move
-    - compute probability of a cell being a mine:
-    - interestingCells: find the cells that are uncovered and have at least on Hidden neighbour
-    - candidateCells: finds the cells that are Hidden and direct neighbors of uncovered Cells
-    - generateRules: generate Rules out of the candidate Cells. A rule is of form Rule(numMines: Int, candidates: Set[Cell]) where numMines comes from one of the already uncovered cells (so the number of rules generated is always the same as the number of uncovered cells surrounded by at least on hidden cell (= interestingCell)) and is the number of mines that has distributed by the candidates
-    - computeProbabilites: looks at all of the generatedRules and computes the probability for each candidate Cell being a mine. Output is of the form List[coordinate: (Int,Int), probability: Double[0,1]]
-    - replacableCells: finds first cell that can hold a mine and outputs it's index or throws effect if there is none
-    - replaceMine: run replaceableCell. If it returns a position, place the mine that's being replaced onto that new position, updating all the cells around it (neighboursOf). If there is no position (replacableCells throwing), for now just remove the mine from the current cell and don't place it anywhere else -> there is now one mine less in the game. Not perfect, but currently don't know better way and should not happen very often
+    - ✅ determine the first move and handle it correctly (= no mine placed on that cell)
+    - ❌ compute probability of a cell being a mine:
+    - 🟡 interestingCells: find the cells that are uncovered and have at least one Hidden neighbour -> ❌ handling Flagged cells
+    - 🟡 candidateCells: finds the cells that are Hidden and direct neighbors of uncovered Cells
+    - ❌ generateRules: generate Rules out of the candidate Cells. A rule is of form Rule(numMines: Int, candidates: Set[Cell]) where numMines comes from one of the already uncovered cells (so the number of rules generated is always the same as the number of uncovered cells surrounded by at least on hidden cell (= interestingCell)) and is the number of mines that has distributed by the candidates
+    - ❌ computeProbabilites: looks at all of the generatedRules and computes the probability for each candidate Cell being a mine. Output is of the form List[coordinate: (Int,Int), probability: Double[0,1]]
+    - ❌ replacableCells: finds first cell that can hold a mine and outputs it's index or throws effect if there is none
+    - ❌ replaceMine: run replaceableCell. If it returns a position, place the mine that's being replaced onto that new position, updating all the cells around it (neighboursOf). If there is no position (replacableCells throwing), for now just remove the mine from the current cell and don't place it anywhere else -> there is now one mine less in the game. Not perfect, but currently don't know better way and should not happen very often
 
 - 🟡 fix representation of the board for numbers with multiple digits
 
@@ -163,6 +163,8 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - Clean up printBoard
 
+- for efficiency,... move interestingCells and candidateCells into one function
+
 ---
 
 ### (Weird) bugs:
@@ -179,3 +181,4 @@ To organize/structure the project, the next steps I want to do will always be ad
   - as soon as a Cell containing a Mine is revealed, the game is lost
   - mine counting works correctly
   - flood fill works correctly
+  - interesting cells: all cells are Numbered/empty Cells and have >= 1 Hidden neighbour. No other kind of cell is returned

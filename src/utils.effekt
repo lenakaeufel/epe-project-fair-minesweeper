@@ -38,6 +38,13 @@ type Command {
   Quit()
 }
 
+record Pos(r: Int, c: Int)
+
+def posEquals(left: Pos, right: Pos) = (left, right) match {
+  case (Pos(lx, ly), Pos(rx, ry)) => lx == rx && ly == ry
+}
+
+
 val helpMessage = "To make an action, type one of the following: u to uncover, f to flag/unflag, h for help and q to quit the game"
 val wonMessage = """
  __     ______  _    _    __          ______  _   _  

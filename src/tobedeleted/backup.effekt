@@ -19,27 +19,27 @@ extern def randomInt(minInclusive: Int, maxExclusive: Int): Int =
 /// with radius=1, those are the 8 immediate neighbours (including the diagonal)
 /// with radius=2, these are neighbours&their neighbours
 /// 
-def neighboursOf(boardSize: Int, pos: Pos, radius: Int): Unit/emit[Pos] = {
+def neighboursOf(boardSize: Int, pos: (Int,Int), radius: Int) = {
   //println("Finding neighbors for position" ++ show(pos.first) ++ "," ++ show(pos.second))
   with val dx = for[Int] { range(neg(radius), radius + 1) }
   with val dy = for[Int] { range(neg(radius), radius + 1) }
-  val newPosition = Pos(pos.r + dx, pos.c + dy)
-  if(isValidIndex(boardSize, newPosition) && (((dx == 0) && (dy == 0)) == false)){
-    //println("  Emitting neighbor position: (" ++ show(newPosition.r) ++ "," ++ show(newPosition.c))
+  val newPosition = (pos.first + dx, pos.second + dy)
+  if(isValidIndex(boardSize,newPosition.first,newPosition.second) && ((dx == 0) && (dy == 0)) == false){
+    //println("  Emitting neighbor position: (" ++ show(newPosition.first) ++ "," ++ show(newPosition.second))
     do emit(newPosition)
   }
 }
 
 // update the state of a cell at index [row_index][col_index] with the given new state
 // updating here means returns a new board with the updated cell
-def updateCell(board: Board, pos: Pos, state: CellState): Board = {
-  board.updateAt(pos.r){r =>
-    r.updateAt(pos.c){s => state}}
+def updateCell(board: Board, row_index: Int, col_index: Int, state: CellState): Board = {
+  board.updateAt(row_index){r =>
+    r.updateAt(col_index){s => state}}
 }
 
 // generates a new solution board by placing the given number of mines randomly on a new board of given size
 // all cells not containing a mine will be Number() cells holding the number of mines surrounding the cell
-def generateSolutionBoard(size: Int, numMines: Int, firstMove: Pos): Board/{invalidInput} = {
+def generateSolutionBoard(size: Int, numMines: Int, firstMove: (Int, Int)): Board/{invalidInput} = {
   if(numMines > size*size - 9){ // TODO move this check earlier in the playMinesweeper
     do invalidInput("invalid input: number of mines mustn't exceed the number of cells")
   }
@@ -49,23 +49,23 @@ def generateSolutionBoard(size: Int, numMines: Int, firstMove: Pos): Board/{inva
   if(numMines < 0){
     do invalidInput("invalid input: number of mines musn't be negative")
   }
+  with on[OutOfBounds].panic
   var board: Board = fill[List[CellState]](size, fill[CellState](size, Number(0))) 
 
-  val safeZone: List[Pos] = Cons(firstMove, collectList[Pos]{neighboursOf(size, firstMove, 1)})
+  val safeZone: List[(Int,Int)] = Cons(firstMove, collectList{neighboursOf(size, firstMove, 1)})
 
   // Mine Placement
   var minesPlaced = 0
 
   while (minesPlaced < numMines) {
-    val row: Int = randomInt(0, size)
-    val col: Int = randomInt(0, size)
-    with on[OutOfBounds].panic
-    val cell: CellState = board.get(row).get(col)
+    val r: Int = randomInt(0, size)
+    val c: Int = randomInt(0, size)
+    val cell: CellState = board.get(r).get(c)
 
     cell match {
       case Number(0) => 
-        if(safeZone.any{p => p.r == row && p.c == col} == false){
-          board = updateCell(board, Pos(row,col), Mine())
+        if(safeZone.any{p => p.first == r && p.second == c} == false){
+          board = updateCell(board, r, c, Mine())
           minesPlaced = minesPlaced + 1
         }
       case _ => board = board // TODO: better way to do this?
@@ -75,9 +75,9 @@ def generateSolutionBoard(size: Int, numMines: Int, firstMove: Pos): Board/{inva
   // Correct Placement of Numbers based on given Mine Placement
   board.foreachIndex{ (row_idx, row) =>
     row.foreachIndex{ (col_idx, col) => 
-      if(isMine(board, Pos(row_idx, col_idx)) == false){
-        val mines = countAdjacentMines(board, Pos(row_idx, col_idx))
-        board = board.updateCell(Pos(row_idx, col_idx), Number(mines))
+      if(isMine(board, row_idx, col_idx) == false){
+        val mines = countAdjacentMines(board, row_idx, col_idx)
+        board = board.updateCell(row_idx, col_idx, Number(mines))
       }
     }
   }
@@ -89,7 +89,7 @@ def generatePlayerBoard(size: Int): Board = {
 }
 
 // count the number of mines surrounding a cell (max: 8)
-def countAdjacentMines(board: Board, pos: Pos): Int = {
+def countAdjacentMines(board: Board, row: Int, col: Int): Int = {
   val size = board.size
   var count = 0
   val dx = [-1, -1, -1, 0, 0, 1, 1, 1]
@@ -97,9 +97,10 @@ def countAdjacentMines(board: Board, pos: Pos): Int = {
 
   with on[OutOfBounds].panic
   each(0,8){ n => 
-    val newPos = Pos(pos.r + dx.get(n),pos.c + dy.get(n))
-    if(isValidIndex(size, newPos)) {
-      if(isMine(board, newPos)){
+    val newRow = row + dx.get(n)
+    val newCol = col + dy.get(n)
+    if(isValidIndex(size, newRow, newCol)) {
+      if(isMine(board, newRow, newCol)){
         count = count + 1
       }
     }
@@ -108,29 +109,28 @@ def countAdjacentMines(board: Board, pos: Pos): Int = {
 }
 
 // check if a given index [row][col] is a valid index on an arbitrary board of given size
-def isValidIndex(size: Int, pos: Pos): Bool = {
-  (pos.r >= 0) && (pos.r < size) && (pos.c >= 0) && (pos.c < size)
+def isValidIndex(size: Int, row: Int, col: Int): Bool = {
+  (row >= 0) && (row < size) && (col >= 0) && (col < size)
 }
 
 // check if a cell with index [row][col] on a given board is a mine
-def isMine(board: Board, pos: Pos): Bool = {
+def isMine(board: Board, row: Int, col: Int): Bool = {
   with on[OutOfBounds].panic
-  board.get(pos.r).get(pos.c) match {
+  board.get(row).get(col) match {
     case Mine() => true
     case _ => false
   }
 }
 
 // validate a given move of the player by comparing the desired move to the current player board
-def isValidMove(board: Board, pos:Pos, action: Action): Bool/{invalidInput} = {
-  if(isValidIndex(board.size, pos) == false){
-    do invalidInput("invalid input: given coordinates (row,col) = (" ++ show(pos.r) ++ "," ++ show(pos.c) ++ ") " ++ "are not within the board of size " ++ show(board.size))
+def isValidMove(board: Board, row: Int, col: Int, action: Action): Bool/{invalidInput} = {
+  if(isValidIndex(board.size, row, col) == false){
+    do invalidInput("invalid input: given coordinates (row,col) = (" ++ show(row) ++ "," ++ show(col) ++ ") " ++ "are not within the board of size " ++ show(board.size))
     false
   } 
-
   else {// index is valid for board
     with on[OutOfBounds].panic
-    val cellState = board.get(pos.r).get(pos.c)
+    val cellState = board.get(row).get(col)
     cellState match {
       case Number(n) => do invalidInput("invalid input: cells already uncovered can't be modified"); false
       case Mine() => do invalidInput("TODO Case not possible: player board can't have mines"); false
@@ -140,16 +140,16 @@ def isValidMove(board: Board, pos:Pos, action: Action): Bool/{invalidInput} = {
 }
 
 // TODO check this!! This should fix that in floodfill too many cells are uncovered (see smartpone image)
-def nonDiagonalNeighboursOf(boardSize: Int, pos: Pos, radius: Int) = {
+def nonDiagonalNeighboursOf(boardSize: Int, pos: (Int, Int), radius: Int) = {
   // Define movement directions: top, bottom, left, right (no diagonals)
   val dx = [-1, 1, 0, 0] // Up, Down, Left, Right
   val dy = [0, 0, -1, 1] // Up, Down, Left, Right
 
   with on[OutOfBounds].panic
   each(0,4){ n => 
-    val newRow = pos.r + dx.get(n)
-    val newCol = pos.c + dy.get(n)
-    if(isValidIndex(boardSize, Pos(newRow, newCol))) {
+    val newRow = pos.first + dx.get(n)
+    val newCol = pos.second + dy.get(n)
+    if(isValidIndex(boardSize, newRow, newCol)) {
       do emit((newRow, newCol))
     }
   }
@@ -157,24 +157,24 @@ def nonDiagonalNeighboursOf(boardSize: Int, pos: Pos, radius: Int) = {
 
 // recursive algorithm to uncover multiple cells at once based on one move and return the resulting Board
 // assuming the move of the first call of floodFill is a valid one
-def floodFill(playerBoard: Board, solutionBoard: Board, pos: Pos, visited: List[(Int,Int)]): (Board, List[(Int, Int)]) = {
-  if(visited.any{cell => cell.first == pos.r && cell.second == pos.c}){// if current cell already visited
+def floodFill(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, visited: List[(Int,Int)]): (Board, List[(Int, Int)]) = {
+  if(visited.any{cell => cell.first == row && cell.second == col}){// if current cell already visited
     (playerBoard, visited)//visited stays the same (acts like a Set) TODO change into a Set once possible
   } 
   else{
-  val newVisited = Cons((pos.r, pos.c), visited)
+  val newVisited = Cons((row, col), visited)
   
   with on[OutOfBounds].panic
-  val cellStateSolution = solutionBoard.get(pos.r).get(pos.c)
-  val newBoard = playerBoard.updateCell(pos,  cellStateSolution) 
+  val cellStateSolution = solutionBoard.get(row).get(col)
+  val newBoard = playerBoard.updateCell(row, col, cellStateSolution) 
 
   cellStateSolution match {
     case Number(0) => // If the cell has no adjacent mines, continue flood-fill
-      val neighbours: List[(Int,Int)] = collectList{nonDiagonalNeighboursOf(playerBoard.size,pos, 1)}
+      val neighbours: List[(Int,Int)] = collectList{nonDiagonalNeighboursOf(playerBoard.size,(row,col), 1)}
       
       neighbours.foldLeft((newBoard, newVisited)){(acc, cell) => // handle cell (row,col) by modifying it on the board
         val (currentBoard, currentVisited) = acc
-        floodFill(currentBoard, solutionBoard, Pos(cell.first, cell.second), currentVisited)
+        floodFill(currentBoard, solutionBoard, cell.first, cell.second, currentVisited)
       }
     case Number(n) => (newBoard, newVisited)
     case _ => (newBoard, newVisited)
@@ -182,77 +182,64 @@ def floodFill(playerBoard: Board, solutionBoard: Board, pos: Pos, visited: List[
   }
 }
 
-// find cells that are interesting for solving. Interesting means, they provide new information for solving 
-// A cell is interesting if it is not Hidden itself (so it is a Number() cell), 
-// but has at least one Hidden neighbour
-def interestingCells(playerBoard: Board): List[Pos] = {
+def interestingCells(playerBoard: Board): List[(Int,Int)] = {
   var cells = []
   playerBoard.foreachIndex{ (row_idx, row) =>
     row.foreachIndex{ (col_idx, col) => 
       with on[OutOfBounds].panic
       val cellState = playerBoard.get(row_idx).get(col_idx)
       cellState match {
-        case Hidden() => cells = cells // Hidden cells don't provide any information -> ignore them
-        case Flagged() => cells = cells// TODO how to handle flagged cells
-        case Number(n) => // cells with Numbers can be interesting (if they have >= 1 Hidden neighbour)
-          val neighbours: List[Pos] = collectList{neighboursOf(playerBoard.size,Pos(row_idx,col_idx), 1)}
-          //println("fix neighbours interesting cells" ++ genericShow(neighbours))
+        case Number(0) => cells = cells // TODO check
+        case Number(n) => 
+          val neighbours: List[(Int, Int)] = collectList{neighboursOf(playerBoard.size,(row_idx,col_idx), 1)}
           if (neighbours.any{n => 
+            val r = n.first
+            val c = n.second
             with on[OutOfBounds].panic
-            val state = playerBoard.get(n.r).get(n.c)
+            val state = playerBoard.get(r).get(c)
             state match {
               case Hidden() => true
               case _ => false
-            }}) cells = Cons(Pos(row_idx,col_idx), cells)
-        case _ => cells = cells // mines on player board not possible
+            }}) cells = Cons((row_idx,col_idx), cells)
+        case _ => cells = cells // TODO special case Flag cells => check solution board here?
       }
     }
   }
   cells
 }
 
-// TODO make interestingCells and candidateCells one function
-// returns the Hidden neighbours of interesting cells.
-// While interestingCells returns the cells that provide information for solving, 
-// candidate Cells are the cells this information can be used on 
-// since they are the cells being uncovered next
-def candidateCells(playerBoard: Board, interesting: List[Pos]): List[Pos] = {
+def candidateCells(playerBoard: Board, interesting: List[(Int, Int)]): List[(Int,Int)] = {
   var candidates = []
-  interesting.foreach{interestingCell => // iterate over all the interesting cells
-  for[Pos]{neighboursOf(playerBoard.size, interestingCell, 1)}{candidate => // for each interesting cell, iterate over all it's neighbours
+  with val candidate: (Int,Int) = interesting.foreach{p => neighboursOf(playerBoard.size, p.first, p.second, 1)}
+  
   with on[OutOfBounds].panic
-  val cellState = playerBoard.get(candidate.r).get(candidate.c)
+  val cellState = playerBoard.get(candidate.first).get(candidate.second)
   cellState match {
-    case Hidden() => if(candidates.any{c => c.posEquals(candidate)} == false){
-      candidates = Cons(candidate, candidates) // candidates has to be a Set
-    }
-    case _ => candidates = candidates
-  }}}
-  candidates
+    case Hidden() => candidates = Cons(candidate, candidates)
+  }
 }
 
 // perform the given move by returning the new Board after the given move
 // uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
-def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): Board/{gameOver} = {
+def makeMove(playerBoard: Board, solutionBoard: Board, row: Int, col: Int, action: Action): Board/{gameOver} = {
   var newPlayerBoard = playerBoard
   try {
-    if(isValidMove(playerBoard, pos, action) == false){
+    if(isValidMove(playerBoard, row, col, action) == false){
       playerBoard
     } else {
       with on[OutOfBounds].panic
-
-      val cellStateSolution = solutionBoard.get(pos.r).get(pos.c)
-      val cellStatePlayer = playerBoard.get(pos.r).get(pos.c)
+      val cellStateSolution = solutionBoard.get(row).get(col)
+      val cellStatePlayer = playerBoard.get(row).get(col)
       action match {
         case Flag() => cellStatePlayer match { // move is valid => only first two cases (Hidden/Flagged) possible
-          case Hidden() => newPlayerBoard = newPlayerBoard.updateCell(pos, Flagged())
-          case Flagged() => newPlayerBoard = newPlayerBoard.updateCell(pos, Hidden())
+          case Hidden() => newPlayerBoard = newPlayerBoard.updateCell(row, col, Flagged())
+          case Flagged() => newPlayerBoard = newPlayerBoard.updateCell(row, col, Hidden())
           case _ => do invalidInput("TODO not possible because we already checked the move was valid")
         }
         case Uncover() => cellStateSolution match {
           case Mine() => do gameOver(solutionBoard)
           case _ => 
-            val (updatedPlayerBoard, _) = newPlayerBoard.floodFill(solutionBoard, pos,[])
+            val (updatedPlayerBoard, _) = newPlayerBoard.floodFill(solutionBoard, row, col,[])
             newPlayerBoard = updatedPlayerBoard
 
       }}
@@ -294,7 +281,7 @@ def parseCommand(command: List[String], boardSize: Int): Command/{invalidInput} 
     val yString: String = command.get(2)
     val y: Int = yString.toInt()
 
-    if(isValidIndex(boardSize, Pos(x, y))){
+    if(isValidIndex(boardSize, x, y)){
       if(a == "f"){
         cmd = PerformAction(Flag(),x,y)
       }
@@ -310,23 +297,20 @@ def parseCommand(command: List[String], boardSize: Int): Command/{invalidInput} 
   cmd
 }
 
-def getFirstMove(boardSize: Int): Pos = {
-  var firstMove = Pos(-1,-1)
-  println("not updated yet" ++ genericShow(firstMove))
-  while(firstMove.r == -1 && firstMove.c == -1){
+def getFirstMove(boardSize: Int): (Int, Int) = {
+  var firstMove = (-1,-1)
+  while(firstMove.first == -1 && firstMove.second == -1){
     println("To make your first move, enter the number of the row you want to make your move at")
     with console;
     val row = do readLine()
     println("Now enter the number of the column you want to make your move at")
     val col = do readLine()
-    println("here")
-    with on[WrongFormat].default{()}
-    val maybeMove = Pos(row.toInt, col.toInt)
-    println("got maybe move" ++ genericShow(maybeMove))
 
-    if(isValidIndex(boardSize, maybeMove)){
+    with on[WrongFormat].default{()}
+    val maybeMove = (row.toInt, col.toInt)
+
+    if(isValidIndex(boardSize,maybeMove.first, maybeMove.second)){
       firstMove = maybeMove
-      println("updated" ++ genericShow(firstMove))
     }
   }
   firstMove
@@ -342,20 +326,14 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
   val firstMove = getFirstMove(boardSize)
   try{
   val solutionBoard = generateSolutionBoard(boardSize, numMines, firstMove)
-  printBoard(solutionBoard)
 
   //playerBoard = playerBoard.updateCell(firstMove.first, firstMove.second, Number(0)) // safe because we handle this move in generateSolutionBoard
-  val (newPlayerBoard, _) = playerBoard.floodFill(solutionBoard, firstMove, [])
+  val (newPlayerBoard, _) = playerBoard.floodFill(solutionBoard, firstMove.first, firstMove.second, [])
   playerBoard = newPlayerBoard
   printBoard(playerBoard)
 
   //TODO remove
-  println("Interesting cells: ")
-  val interest = interestingCells(playerBoard)
-  println(genericShow(interest))
-  println(" ")
-  println("Candidate cells: ")
-  println(genericShow(candidateCells(playerBoard, interest)))
+  println(genericShow(interestingCells(playerBoard)))
   // 
   println(helpMessage)
 
@@ -376,7 +354,7 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
   val cmd = parseCommand(commands, boardSize)
   
   cmd match {
-    case PerformAction(a,x,y) => try {playerBoard = makeMove(playerBoard, solutionBoard, Pos(x, y), a); printBoard(playerBoard)
+    case PerformAction(a,x,y) => try {playerBoard = makeMove(playerBoard, solutionBoard, x, y, a); printBoard(playerBoard)
     }with gameOver{b =>
     println(gameOverMessage)
     println("This is the solution board:")
@@ -398,15 +376,15 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
 /// with radius=1, those are immediate neighbours (including the diagonal)
 /// with radius=2, these are neighbours&their neighbours
 /// ...
-/*
 def neighboursOf(pos: (Int,Int), radius: Int) = {
   with val dx = for[Int] { range(neg(radius), radius + 1) }
   with val dy = for[Int] { range(neg(radius), radius + 1) }
   val newPosition = (pos.first + dx, pos.second + dy)
   do emit(newPosition)
-}*/
+}
+
 def main(): Unit = {
-  playMinesweeper(10,15)
+  playMinesweeper(14,16)
 }
 
 
