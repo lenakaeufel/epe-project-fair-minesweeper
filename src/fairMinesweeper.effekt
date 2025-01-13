@@ -231,6 +231,100 @@ def candidateCells(playerBoard: Board, interesting: List[Pos]): List[Pos] = {
   candidates
 }
 
+def generateRules(playerBoard: Board): List[Rule] = {
+  var rules: List[Rule] = []
+  playerBoard.foreachIndex{ (row_idx, row) =>
+    row.foreachIndex{ (col_idx, col) => 
+
+      with on[OutOfBounds].panic
+      val cellState: CellState = playerBoard.get(row_idx).get(col_idx)
+      cellState match {
+        case Hidden() => rules = rules // Hidden cells don't provide any information -> ignore them
+        case Flagged() => rules = rules// TODO how to handle flagged cells
+        case Number(n) => // cells with Numbers can be interesting (if they have >= 1 Hidden neighbour)
+          val neighbours: List[Pos] = collectList{neighboursOf(playerBoard.size,Pos(row_idx,col_idx), 1)}
+          var c: List[Pos] = []
+          var interesting = false
+          neighbours.foreach{nb => 
+            with on[OutOfBounds].panic
+            val state = playerBoard.get(nb.r).get(nb.c)
+            state match {
+              case Hidden() => c = Cons(nb,c); interesting = true
+              case _ => interesting = interesting
+            }}
+            if(interesting){
+            rules = Cons(Rule(n,c),rules)
+            }
+        case _ => rules = rules // mines on player board not possible
+      }
+    }
+  }
+  rules
+}
+
+// Main function for calculating the probabilities of each relevant (= Hidden and neighbour of a Number cell) cell being a mine
+def calculateProbabilities(rules: List[Rule]): List[(Pos, Double)] = {
+  def getUniquePositions(rules: List[Rule]): List[Pos] = {
+    var uniquePositions = []
+    rules.foreach{rule =>
+      rule.positions.foreach{pos =>
+        if(uniquePositions.any{upos => posEquals(upos,pos)}){uniquePositions = uniquePositions
+        } else {uniquePositions = Cons(pos, uniquePositions)}}
+    }
+    uniquePositions
+  }
+
+  // Validate a configuration against all rules TODO use Set for type of config
+  // a configuration is one possible distribution of the mines around a number cell on the surrounding hidden cells 
+  // the configuration contains the Positions of the cells assigned a mine
+  def isValidConfiguration(config: Configuration, rules: List[Rule]): Bool = {
+    def countMinesInRule(rule: Rule): Int = {
+      rule.positions.count { pos => config.any{c => posEquals(pos, c)} } // how many pos of the rule are also in the configuration?
+    }
+    rules.all{rule => countMinesInRule(rule) == rule.mineCount}
+  }
+
+  // Generate all valid configurations (using recursion)
+  // TODO use set (it returns a list of configurations and a configuration is a set) for return type
+  // TODO use backtracking and abandon invalid paths early instead of exploring them to completion -> more efficient?
+  def generateConfigurations(positions: List[Pos]): List[Configuration] = {
+    def generate(remaining: List[Pos], current: Configuration): List[Configuration] = {
+      remaining match{
+        case Nil() => 
+          if (isValidConfiguration(current, rules)) [current]
+          else []
+        case Cons(pos, rest) =>
+          val withoutPos = generate(rest, current)
+          val withPos = generate(rest, Cons(pos,current))
+          withoutPos.append(withPos)
+      }
+    }
+    generate(positions, [])
+  }
+
+  // For each relevant cell, calculate its probabilitiy of being a mine out of all possible configurations
+  def calculateProbsFromConfigs(positions: List[Pos], configs: List[Configuration]): List[(Pos, Double)] = {
+    val totalConfigs = configs.size
+    if (totalConfigs == 0) [] // TODO exception, not solvable
+    else{ 
+      positions.map { pos => // for each position, count in how many configurations it appears as a mine = mineCount 
+        val mineCount = configs.count { config => config.any{c => posEquals(c,pos)} } 
+        val probability = mineCount.toDouble / totalConfigs.toDouble
+        (pos, probability)
+      } 
+    }
+  }
+
+  // dummy 
+  val uniquePositions = getUniquePositions(rules)
+  val configs = generateConfigurations(uniquePositions)
+  calculateProbsFromConfigs(uniquePositions, configs)
+}
+
+def checkFairRules(): Unit = {
+  <>
+}
+
 // perform the given move by returning the new Board after the given move
 // uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
 def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): Board/{gameOver} = {
@@ -350,12 +444,14 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
   printBoard(playerBoard)
 
   //TODO remove
-  println("Interesting cells: ")
+  /*println("Interesting cells: ")
   val interest = interestingCells(playerBoard)
   println(genericShow(interest))
   println(" ")
   println("Candidate cells: ")
-  println(genericShow(candidateCells(playerBoard, interest)))
+  println(genericShow(candidateCells(playerBoard, interest)))*/
+  val rules = generateRules(playerBoard)
+  println(genericShow(calculateProbabilities(rules)))
   // 
   println(helpMessage)
 
@@ -406,7 +502,7 @@ def neighboursOf(pos: (Int,Int), radius: Int) = {
   do emit(newPosition)
 }*/
 def main(): Unit = {
-  playMinesweeper(10,15)
+  playMinesweeper(5,7)
 }
 
 

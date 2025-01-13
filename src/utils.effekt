@@ -39,9 +39,20 @@ type Command {
 }
 
 record Pos(r: Int, c: Int)
+record Rule(mineCount: Int, positions: List[Pos])
+type Configuration = List[Pos] // TODO use Set
 
 def posEquals(left: Pos, right: Pos) = (left, right) match {
   case (Pos(lx, ly), Pos(rx, ry)) => lx == rx && ly == ry
+}
+
+def printRules(rules: List[Rule]): Unit = {
+  var rulesString: String = ""
+  rules.foreach{ rule =>
+    val ruleString: String = "Rule(" ++ show(rule.mineCount) ++ ", " ++ genericShow(rule.positions) ++ ") \n" 
+    rulesString = rulesString ++ ruleString
+  }
+  println(rulesString)
 }
 
 
