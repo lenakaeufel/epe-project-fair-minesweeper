@@ -43,8 +43,8 @@ To organize/structure the project, the next steps I want to do will always be ad
     - 🟡 candidateCells: finds the cells that are Hidden and direct neighbors of uncovered Cells
     - ✅ generateRules: generate Rules out of the candidate Cells. A rule is of form Rule(numMines: Int, candidates: Set[Cell]) where numMines comes from one of the already uncovered cells (so the number of rules generated is always the same as the number of uncovered cells surrounded by at least on hidden cell (= interestingCell)) and is the number of mines that has distributed by the candidates
     - 🟡 computeProbabilites: looks at all of the generatedRules and computes the probability for each candidate Cell being a mine. Output is of the form List[coordinate: (Int,Int), probability: Double[0,1]]
-    - ❌ replacableCells: finds first cell that can hold a mine and outputs it's index or throws effect if there is none
-    - ❌ replaceMine: run replaceableCell. If it returns a position, place the mine that's being replaced onto that new position, updating all the cells around it (neighboursOf). If there is no position (replacableCells throwing), for now just remove the mine from the current cell and don't place it anywhere else -> there is now one mine less in the game. Not perfect, but currently don't know better way and should not happen very often
+    - 🟡 replacableCells: finds first cell that can hold a mine and outputs it's index or throws effect if there is none TODO: use effect?
+    - 🟡 replaceMine: run replaceableCell. If it returns a position, place the mine that's being replaced onto that new position, updating all the cells around it (neighboursOf). If there is no position (replacableCells throwing), for now just remove the mine from the current cell and don't place it anywhere else -> there is now one mine less in the game. Not perfect, but currently don't know better way and should not happen very often
 
 - 🟡 fix representation of the board for numbers with multiple digits
 

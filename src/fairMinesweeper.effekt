@@ -24,6 +24,7 @@ def neighboursOf(boardSize: Int, pos: Pos, radius: Int): Unit/emit[Pos] = {
   with val dx = for[Int] { range(neg(radius), radius + 1) }
   with val dy = for[Int] { range(neg(radius), radius + 1) }
   val newPosition = Pos(pos.r + dx, pos.c + dy)
+
   if(isValidIndex(boardSize, newPosition) && (((dx == 0) && (dy == 0)) == false)){
     //println("  Emitting neighbor position: (" ++ show(newPosition.r) ++ "," ++ show(newPosition.c))
     do emit(newPosition)
@@ -224,6 +225,7 @@ def candidateCells(playerBoard: Board, interesting: List[Pos]): List[Pos] = {
   val cellState = playerBoard.get(candidate.r).get(candidate.c)
   cellState match {
     case Hidden() => if(candidates.any{c => c.posEquals(candidate)} == false){
+      
       candidates = Cons(candidate, candidates) // candidates has to be a Set
     }
     case _ => candidates = candidates
@@ -246,6 +248,7 @@ def generateRules(playerBoard: Board): List[Rule] = {
           var c: List[Pos] = []
           var interesting = false
           neighbours.foreach{nb => 
+
             with on[OutOfBounds].panic
             val state = playerBoard.get(nb.r).get(nb.c)
             state match {
@@ -278,8 +281,8 @@ def calculateProbabilities(rules: List[Rule]): List[(Pos, Double)] = {
   // a configuration is one possible distribution of the mines around a number cell on the surrounding hidden cells 
   // the configuration contains the Positions of the cells assigned a mine
   def isValidConfiguration(config: Configuration, rules: List[Rule]): Bool = {
-    def countMinesInRule(rule: Rule): Int = {
-      rule.positions.count { pos => config.any{c => posEquals(pos, c)} } // how many pos of the rule are also in the configuration?
+    def countMinesInRule(rule: Rule): Int = {// for each rule
+      rule.positions.count { pos => config.any{c => posEquals(pos, c)} } //count: how many pos of this rule are also in the configuration?
     }
     rules.all{rule => countMinesInRule(rule) == rule.mineCount}
   }
@@ -318,20 +321,72 @@ def calculateProbabilities(rules: List[Rule]): List[(Pos, Double)] = {
   // dummy 
   val uniquePositions = getUniquePositions(rules)
   val configs = generateConfigurations(uniquePositions)
+  println(genericShow(configs))
+  println("")
   calculateProbsFromConfigs(uniquePositions, configs)
 }
 
-def checkFairRules(): Unit = {
-  <>
+// checks if a mine has to be moved based on the probabilities of each relevant cell and the cell that's the next being uncovered
+// if the given move is on a cell the user could have been certain there is no mine on it, he immediately looses
+// if the given move is on a cell the user couldn't have been certain there is a mine on it, in cases there is a mine it get's replaced
+// returns true if mine on move needs to be replaced, false if not.
+def replacementNeeded(solutionBoard: Board, probabilities: List[(Pos, Double)], move: Pos): Bool/{gameOver} = {
+  val moveIsMine = isMine(solutionBoard, move)
+  val safeCells = probabilities.filter{p => p.second == 0.toDouble}.map{prob => prob.first}
+  if(safeCells.size() == 0){ // no safe cell exists => move has to be safe
+    moveIsMine // if the move is a mine it has to be replaced (true), otherwise we don't have to do anything (false)
+  } else{
+    if(safeCells.any{pos => pos.posEquals(move)}){// move is in safe cells => don't have to do anything (false)
+      false
+      }
+      else{ // there is a safe move but the user didn't choose it => he looses
+      do gameOver(solutionBoard); false // TODO use special gameOver here (with message that he lost bc of fair rules)
+    }  
+    }
+}
+
+def replaceMine(solutionBoard: Board, playerBoard: Board, move: Pos): Board = {
+  def findCandidate(): Pos = {
+    with on[OutOfBounds].panic
+    var candidate: Pos = Pos(-1,-1)
+    solutionBoard.foreachIndex{ (row_idx, row) =>
+      row.foreachIndex{ (col_idx, col) =>
+        val pPos = playerBoard.get(row_idx).get(col_idx)
+        pPos match {
+          case Hidden() => {val nbs = collectList[Pos]{neighboursOf(solutionBoard.size, Pos(row_idx, col_idx), 1)}
+          if(nbs.all{nb => val nbState = playerBoard.get(nb.r).get(nb.c)
+            nbState match {
+              case Hidden() => true
+              case _ => false
+            }}) candidate = Pos(row_idx, col_idx)
+          }
+          case _ => candidate = candidate 
+        }
+      }
+    }
+    candidate
+  }
+
+  val candidate = findCandidate()
+  var newSolutionBoard: Board = solutionBoard
+
+  if(candidate.posEquals(Pos(-1,-1))) solutionBoard.updateCell(move, Number(0))// no other place for the mine => just remove it
+  else{solutionBoard.updateCell(candidate, Mine())
+  val nbs: List[Pos] = collectList[Pos]{neighboursOf(solutionBoard.size, candidate, 1)}
+
+  nbs.foreach{nb => newSolutionBoard = newSolutionBoard.updateCell(nb, Number(1))}
+  newSolutionBoard} 
+  
 }
 
 // perform the given move by returning the new Board after the given move
 // uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
-def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): Board/{gameOver} = {
+def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): (Board, Board)/{gameOver} = {
   var newPlayerBoard = playerBoard
+  var newSolutionBoard = solutionBoard
   try {
     if(isValidMove(playerBoard, pos, action) == false){
-      playerBoard
+      (playerBoard, solutionBoard)
     } else {
       with on[OutOfBounds].panic
 
@@ -343,18 +398,31 @@ def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action)
           case Flagged() => newPlayerBoard = newPlayerBoard.updateCell(pos, Hidden())
           case _ => do invalidInput("TODO not possible because we already checked the move was valid")
         }
-        case Uncover() => cellStateSolution match {
+        case Uncover() => /*cellStateSolution match {
           case Mine() => do gameOver(solutionBoard)
           case _ => 
             val (updatedPlayerBoard, _) = newPlayerBoard.floodFill(solutionBoard, pos,[])
             newPlayerBoard = updatedPlayerBoard
-
-      }}
-      newPlayerBoard
+        }*/
+          {
+            val probs = calculateProbabilities(generateRules(playerBoard))
+            if(replacementNeeded(solutionBoard, probs, pos)){
+              newSolutionBoard = replaceMine(solutionBoard, playerBoard, pos)
+            }
+            val newcellStateSolution = newSolutionBoard.get(pos.r).get(pos.c)
+            newcellStateSolution match {
+          case Mine() => do gameOver(solutionBoard)
+          case _ => 
+            val (updatedPlayerBoard, _) = newPlayerBoard.floodFill(solutionBoard, pos,[])
+            newPlayerBoard = updatedPlayerBoard
+        }
+          }
+      }
+      (newPlayerBoard, newSolutionBoard)
     }
   } with invalidInput{ m =>
     println(m)
-    playerBoard
+    (playerBoard, solutionBoard)
   }
 }
 
@@ -435,7 +503,7 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
   printBoard(playerBoard)
   val firstMove = getFirstMove(boardSize)
   try{
-  val solutionBoard = generateSolutionBoard(boardSize, numMines, firstMove)
+  var solutionBoard = generateSolutionBoard(boardSize, numMines, firstMove)
   printBoard(solutionBoard)
 
   //playerBoard = playerBoard.updateCell(firstMove.first, firstMove.second, Number(0)) // safe because we handle this move in generateSolutionBoard
@@ -472,7 +540,11 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
   val cmd = parseCommand(commands, boardSize)
   
   cmd match {
-    case PerformAction(a,x,y) => try {playerBoard = makeMove(playerBoard, solutionBoard, Pos(x, y), a); printBoard(playerBoard)
+    case PerformAction(a,x,y) => try {
+      val newBoards = makeMove(playerBoard, solutionBoard, Pos(x, y), a)
+      playerBoard = newBoards.first
+      solutionBoard = newBoards.second
+      printBoard(playerBoard)
     }with gameOver{b =>
     println(gameOverMessage)
     println("This is the solution board:")
@@ -502,7 +574,7 @@ def neighboursOf(pos: (Int,Int), radius: Int) = {
   do emit(newPosition)
 }*/
 def main(): Unit = {
-  playMinesweeper(5,7)
+  playMinesweeper(6,2)
 }
 
 
