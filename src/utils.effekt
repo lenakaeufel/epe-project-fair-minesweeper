@@ -9,6 +9,17 @@ def count_digits(number: Int): Int = {
   if(n == 0.0) 1
   else floor(log10(abs(n))) + 1
 }
+
+extern js"""
+  function getRandomInt(min, max) {
+    const minCeiled = Math.ceil(min);
+    const maxFloored = Math.floor(max);
+    return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled); // The maximum is exclusive and the minimum is inclusive
+  }
+"""
+
+extern def randomInt(minInclusive: Int, maxExclusive: Int): Int =
+  js"getRandomInt(${minInclusive}, ${maxExclusive})"
     
 
 effect invalidInput(msg: String): Unit

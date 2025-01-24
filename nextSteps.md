@@ -10,6 +10,10 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 ### Sixth Week: 07.01. - 13.01.2025
 
+- ❌ replacement of mines doesn't work -> if we can't make a safe move and fair rules should apply (= mine is moved in case we unflag cell with mine). But instead the player still looses the game
+
+- ❌ implement chording
+
 - ❌ properly notice when game is won:
 
   - game should be won once all cells not containing a mine are uncovered
@@ -21,9 +25,12 @@ To organize/structure the project, the next steps I want to do will always be ad
   - add possibility to restart the game (as an action, e.g. "press r to restart the game") during a running game
   - clear the terminal after a restart
 
-- ❌ implement solver -> should be very easy once probabilities can be computed (the only thing it does is to always uncover a cell with probability 0, or smallest value in general (sometimes there is none with probability 0). Solver should always be able to win the game and game should already automatically detect it won without any extra work needed)
+- 🛠️ implement solver -> should be very easy once probabilities can be computed (the only thing it does is to always uncover a cell with probability 0, or smallest value in general (sometimes there is none with probability 0). Solver should always be able to win the game and game should already automatically detect it won without any extra work needed)
 
-- 🛠️ implement Fair rules:
+  - TODO: in solver, it currently isn't recognized that floodfill performed a move (when all probabilities are 0) -> performing action: PerformAction(Uncover(), 1, 4)
+    invalid input: cells already uncovered can't be modified
+
+- 🟡 implement Fair rules:
 
   1. If the user, judging by the state of the board, could not be sure that a mine was not on any square,
      a mine is not on that square after uncovering any square
