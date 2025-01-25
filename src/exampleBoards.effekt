@@ -1,4 +1,7 @@
-import src/minesweeper
+import src/fairMinesweeper
+import src/utils
+import io/console
+import test
 
 val exampleBoard2x2: Board = [
   [Number(0), Number(1)],
@@ -25,3 +28,138 @@ val exampleSolutionBoard: Board = [
   [Number(1), Number(1), Number(2), Number(1)],
   [Number(0), Number(0), Number(1), Mine()]
 ]
+
+val problematicSolutionBoard: Board = [
+  [Number(0),Number(0),Number(1),Mine(),Number(3),Mine(),Mine()],
+  [Number(0),Number(0),Number(1),Number(2),Number(5),Mine(),Mine()],
+  [Number(0),Number(1),Number(1),Number(3),Mine(),Mine(),Mine()],
+  [Number(2),Number(3),Mine(),Number(4),Mine(),Mine(), Number(4)],
+  [Mine(),Mine(),Number(4),Mine(),Number(6),Mine(),Number(2)],
+  [Number(4),Number(6),Number(6),Mine(),Mine(),Number(4),Number(2)],
+  [Number(1),Mine(),Number(4),Mine(),Mine(),Mine(),Number(1)]
+]
+// problem: when uncovering (6,0), the mine on (6,1) is uncovered as well -> problem of floodfill?!
+val problematicPlayerBoard: Board = [
+  [Number(0),Number(0),Number(1),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Number(0),Number(0),Number(1),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Number(0),Number(1),Number(1),Number(3),Hidden(),Hidden(),Hidden()],
+  [Number(2),Number(3),Flagged(),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Mine(),Flagged(),Number(4),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Number(4),Hidden(),Hidden(),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Hidden(),Hidden(),Hidden(),Hidden(),Hidden(),Hidden(),Hidden()]
+]
+
+val beforeRemoveMineSolution: Board = [
+  [Number(1), Mine(), Number(2), Number(1)],
+  [Number(2), Number(3), Mine(), Number(1)],
+  [Mine(), Number(2), Number(1), Number(1)],
+  [Number(1), Number(1), Number(0), Number(0)]
+]
+
+val beforeRemoveMinePlayer: Board = [
+  [Number(1), Flagged(), Number(2), Hidden()],
+  [Number(2), Hidden(), Hidden(), Hidden()],
+  [Flagged(), Number(2), Hidden(), Hidden()],
+  [Number(1), Number(1), Hidden(), Hidden()]
+]
+
+val afterRemoveMineSolution: Board = [
+  [Number(2), Mine(), Number(2), Number(0)],
+  [Number(3), Mine(), Number(2), Number(0)],
+  [Mine(), Number(2), Number(1), Number(0)],
+  [Number(1), Number(1), Number(0), Number(0)]
+]
+
+val afterRemoveMinePlayer: Board = [
+  [Number(2), Flagged(), Number(2), Hidden()],
+  [Number(3), Hidden(), Hidden(), Hidden()],
+  [Flagged(), Number(2), Hidden(), Hidden()],
+  [Number(1), Number(1), Hidden(), Hidden()]
+]
+
+
+def playMinesweeperdebug(boardSize: Int, numMines: Int): Unit = {
+  println("Welcome to Fair Minesweeper!")
+  println("To start a new game, press Enter on your keyboard")
+  var playerBoard = problematicPlayerBoard
+  var solutionBoard = problematicSolutionBoard
+  printBoard(playerBoard)
+  try{
+  printBoard(solutionBoard)
+
+  //playerBoard = playerBoard.updateCell(firstMove.first, firstMove.second, Number(0)) // safe because we handle this move in generateSolutionBoard
+  val (newPlayerBoard, _) = playerBoard.floodFill(solutionBoard, Pos(6,0), [])
+  playerBoard = newPlayerBoard
+  printBoard(playerBoard)
+
+  //TODO remove
+  /*println("Interesting cells: ")
+  val interest = interestingCells(playerBoard)
+  println(genericShow(interest))
+  println(" ")
+  println("Candidate cells: ")
+  println(genericShow(candidateCells(playerBoard, interest)))*/
+  val rules = generateRules(playerBoard)
+  println(genericShow(calculateProbabilities(rules)))
+  // 
+  println(helpMessage)
+
+  var end = false
+  while(end != true){
+  var commands = []
+  with console;
+  val action = do readLine()
+  commands = commands.append([action])
+  if(action == "u" || action == "f"){
+    println("type the number of the row you want to make your move at")
+    val x = do readLine()
+    commands = commands.append([x])
+    println("type the number of the col you want to make your move at")
+    val y = do readLine()
+    commands = commands.append([y])
+  }
+  val cmd = parseCommand(commands, boardSize)
+  
+  cmd match {
+    case PerformAction(a,x,y) => try {
+      val newBoards = makeMove(playerBoard, solutionBoard, Pos(x, y), a)
+      playerBoard = newBoards.first
+      solutionBoard = newBoards.second
+      printBoard(playerBoard)
+    }with gameOver{b =>
+    println(gameOverMessage)
+    println("This is the solution board:")
+    printBoard(b)
+    end = true}
+    case Help() => println(helpMessage)
+    case Quit() => end = true//println("TODO Quit the game"); end = true
+    case Rules() => val rules = generateRules(playerBoard); println(genericShow(calculateProbabilities(rules)))
+    }
+    if(playerBoard.all{row => row.all{cell => cell match {
+      case Hidden() => false
+      case _ => true
+      }
+    }
+
+  })try{do winGame(playerBoard)} with winGame{b => println(wonMessage)}
+  }} with invalidInput{m => println(m); resume(())}
+}
+
+def main() = {
+  /*printBoard(problematicSolutionBoard)
+  printBoard(problematicPlayerBoard)
+  val ffres = floodFill(problematicPlayerBoard,problematicSolutionBoard,Pos(6,0),[])
+  printBoard(ffres.first)*/
+  //playMinesweeperdebug(7,22)
+
+  // test if removing a mine from (1,2) to (1,1) works correctly for an example game state
+  println(suite("replaceMine tests"){
+    printBoard(beforeRemoveMineSolution)
+    printBoard(beforeRemoveMinePlayer)
+    val (sBoard,pBoard) = replaceMine(beforeRemoveMineSolution, beforeRemoveMinePlayer, Pos(1,2), Pos(1,1))
+    printBoard(sBoard)
+    printBoard(pBoard)
+    test(""){assertEqual(sBoard,afterRemoveMineSolution)}
+  })
+
+}

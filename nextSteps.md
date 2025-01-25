@@ -10,7 +10,7 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 ### Sixth Week: 07.01. - 13.01.2025
 
-- ❌ replacement of mines doesn't work -> if we can't make a safe move and fair rules should apply (= mine is moved in case we unflag cell with mine). But instead the player still looses the game
+- ✅ replacement of mines doesn't work -> if we can't make a safe move and fair rules should apply (= mine is moved in case we unflag cell with mine). But instead the player still looses the game
 
 - ❌ implement chording
 
@@ -176,6 +176,18 @@ To organize/structure the project, the next steps I want to do will always be ad
 - Clean up printBoard
 
 - for efficiency,... move interestingCells and candidateCells into one function
+
+- when should fair rules be applied
+
+  - currently for any cell as soon as there is not guaranteed safe move
+  - also possible instead: only for neighbours of already uncovered cells (see TODO in replacementNeeded)
+
+- when moving a Mine, only move it to cells with only Hidden neighbours so that uncovered cells aren't changed?!
+  - currently they can be changed which is a bit weird. Also flags around the old and new minePos are removed when moving the mine
+  - problem why I currently don't do it: possible that there is no such cell => we would have to reduce the mineCount
+  - => then it get's a bit weird to correctly notice when the game is won??
+  - idea: possible to use an effect to signal that no alternative pos for the mine was found and mine count needs to be reduced
+  - handle this effect in function that uses mine count to actually reduce it there?
 
 ---
 

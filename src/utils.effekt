@@ -46,7 +46,8 @@ type Action {
 type Command {
   PerformAction(a: Action,x: Int, y: Int);
   Help();
-  Quit()
+  Quit();
+  Rules()
 }
 
 record Pos(r: Int, c: Int)

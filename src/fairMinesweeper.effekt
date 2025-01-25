@@ -166,8 +166,8 @@ def floodFill(playerBoard: Board, solutionBoard: Board, pos: Pos, visited: List[
         val (currentBoard, currentVisited) = acc
         floodFill(currentBoard, solutionBoard, Pos(cell.first, cell.second), currentVisited)
       }
-    case Number(n) => (newBoard, newVisited)
-    case _ => (newBoard, newVisited)
+    case Number(n) => (newBoard, newVisited) // in case of Numbers still uncover them but then stop
+    case _ => (playerBoard, newVisited) // in case of Mines don't uncover them -> output the original board
     }
   }
 }
@@ -242,6 +242,7 @@ def generateRules(playerBoard: Board): List[Rule] = {
             val state = playerBoard.get(nb.r).get(nb.c)
             state match {
               case Hidden() => c = Cons(nb,c); interesting = true
+              case Flagged() => c = Cons(nb,c); interesting = true // TODO check!! This should fix bug that probabilites are empty after flagging a cell while no probability was 0
               case _ => interesting = interesting
             }}
             if(interesting){
@@ -251,7 +252,9 @@ def generateRules(playerBoard: Board): List[Rule] = {
       }
     }
   }
+  println("rules "++ genericShow(rules))
   rules
+
 }
 
 // Main function for calculating the probabilities of each relevant (= Hidden and neighbour of a Number cell) cell being a mine
@@ -323,6 +326,8 @@ def replacementNeeded(solutionBoard: Board, probabilities: List[(Pos, Double)], 
   val moveIsMine = isMine(solutionBoard, move)
   val safeCells = probabilities.filter{p => p.second == 0.toDouble}.map{prob => prob.first}
   if(safeCells.size() == 0){ // no safe cell exists => move has to be safe
+    // TODO: if it should only be safe to uncover neighbours of already uncovered cells: additional check: && probabilities.any{p => p.posEquals(move)}
+    println("replacementNeeded: safeCells = Nil() -> no safe move exists " ++ show(moveIsMine))
     moveIsMine // if the move is a mine it has to be replaced (true), otherwise we don't have to do anything (false)
   } else{
     if(safeCells.any{pos => pos.posEquals(move)}){// move is in safe cells => don't have to do anything (false)
@@ -334,7 +339,7 @@ def replacementNeeded(solutionBoard: Board, probabilities: List[(Pos, Double)], 
     }
 }
 
-def replaceMine(solutionBoard: Board, playerBoard: Board, move: Pos): Board = {
+/*def replaceMine(solutionBoard: Board, playerBoard: Board, move: Pos): Board = {
   def findCandidate(): Pos = {
     with on[OutOfBounds].panic
     var candidate: Pos = Pos(-1,-1)
@@ -374,10 +379,133 @@ def replaceMine(solutionBoard: Board, playerBoard: Board, move: Pos): Board = {
   }
   newSolutionBoard = newSolutionBoard.updateCell(nb, newState)} 
   newSolutionBoard} 
+}*/
+
+// find a new cell to hold the mine that will be removed from cell movePos
+// this cell has to be a Number() cell that is still Hidden on the Player Board
+def findCandidate(solutionBoard: Board, playerBoard: Board, movePos: Pos): Pos = {
+  var candidate: Pos = Pos(-1,-1) // should never stay that -> if we're looking for a candiate we can always be sure there exists one bc otherwise fair rules wouldn't be applied and we wouldn't move mine
+  
+  val nbs = collectList[Pos]{neighboursOf(solutionBoard.size, movePos, 1)}
+  println(genericShow(nbs))
+
+  nbs.foreach{nb =>
+  with on[OutOfBounds].panic
+  val scell: CellState = solutionBoard.get(nb.r).get(nb.c)
+  val pcell: CellState = playerBoard.get(nb.r).get(nb.c)
+  scell match {
+    case Mine() => candidate = candidate // current cell is already a mine -> can't put the new mine here -> ignore
+    case Number(n) => pcell match {
+      case Hidden() => candidate = nb // found new cell to hold the mine :)
+      case _ => candidate = candidate// if it's flag we want to ignore it bc player thinks there is Mine on it, can't be Mine bc solution Board here isn't mine, know it's number cell bc of solution Board -> can ignore in all cases
+    }
+    case _ => candidate = candidate // not possible on player board -> ignore
+  }
+  }
+  println("replaceMine found candidate: " ++ genericShow(candidate))
+  candidate
+}       
+
+def replaceMine(solutionBoard: Board, playerBoard: Board, movePos: Pos, newMinePos: Pos): (Board, Board) = {
+
+  //val newMinePos = findCandidate() // TODO check if candidate is != (-1,-1), if it is there has to be mistake
+
+  // in case of a mine movement (found a candidate), the boards are updated to correctly display the new state
+  var newSolutionBoard: Board = solutionBoard
+  var newPlayerBoard: Board = playerBoard
+
+  // 1. place a mine on it's new position newMinePos on the solution Board. 
+  // The player Board at this position is still hidden (see findCandidate) so it doesn't need and update
+  newSolutionBoard = solutionBoard.updateCell(newMinePos, Mine())
+
+  // 2. update movePos, the position the mine gets removed from. It is now a Number() cell
+  // again no update of the playerBoard is needed since this cell is still Hidden when replaceMine is called
+  val adjacentMines = countAdjacentMines(newSolutionBoard, movePos)
+  newSolutionBoard = newSolutionBoard.updateCell(movePos, Number(adjacentMines))
+
+  // 3. update the neighbours of movePos and newMinePos on both boards
+  // TODO use Set since they have common cells?
+  val movePosNeighbours = collectList[Pos]{neighboursOf(solutionBoard.size, movePos, 1)}
+  val newMinePosNeighbours = collectList[Pos]{neighboursOf(solutionBoard.size, newMinePos, 1)}
+  def updateNeighbours(positions: List[Pos]): Unit = {
+    positions.foreach{pos =>
+      with on[OutOfBounds].panic
+      val cellStateSolution = newSolutionBoard.get(pos.r).get(pos.c)
+      val cellStatePlayer = newPlayerBoard.get(pos.r).get(pos.c)
+      cellStateSolution match {
+        case Number(n) => val adjMines = countAdjacentMines(newSolutionBoard, pos)
+                         newSolutionBoard = newSolutionBoard.updateCell(pos, Number(adjMines))
+                         cellStatePlayer match {
+                          case Number(n) => newPlayerBoard = newPlayerBoard.updateCell(pos, Number(adjMines))
+                          case Flagged() => newPlayerBoard = newPlayerBoard.updateCell(pos, Hidden()) // TODO check. Currently necessary, but if candidates must have only hidden cells around them not anymore
+                          case _ => newPlayerBoard = newPlayerBoard // all cells except Numbers are Hidden on the player Board and therefore don't need update
+                         }
+        case _ => newSolutionBoard = newSolutionBoard
+      }
+    }
+  }
+
+  updateNeighbours(movePosNeighbours)
+  updateNeighbours(newMinePosNeighbours)
+  (newSolutionBoard, newPlayerBoard)
+  
+/*  
+  var newSolutionBoard: Board = solutionBoard
+  var newPlayerBoard: Board = playerBoard
+
+  // TODO check if candidate is != (-1,-1), if it is there has to be mistake
+  //if(candidate.posEquals(Pos(-1,-1))) solutionBoard.updateCell(move, Number(0))// no other place for the mine => just remove it
+  newSolutionBoard = solutionBoard.updateCell(candidate, Mine())
+  // TODO also update neighbours of move!!
+  val nbs: List[Pos] = collectList[Pos]{neighboursOf(solutionBoard.size, candidate, 1)}
+
+  nbs.foreach{nb => 
+  with on[OutOfBounds].panic
+
+  val oldState = solutionBoard.get(nb.r).get(nb.c)
+  val oldPState = playerBoard.get(nb.r).get(nb.c)
+  oldState match {
+    case Mine() => {if(nb.posEquals(move)){
+      val adjMines = countAdjacentMines(newSolutionBoard,nb)
+      newSolutionBoard = newSolutionBoard.updateCell(nb,Number(adjMines))
+    }else{
+      newSolutionBoard = newSolutionBoard
+    }}
+    case _ => {val adjMines = countAdjacentMines(newSolutionBoard,nb); 
+      newSolutionBoard = newSolutionBoard.updateCell(nb,Number(adjMines))
+      oldPState match {
+        case Number(n) => newPlayerBoard = newPlayerBoard.updateCell(nb, Number(adjMines))
+        case _ => newPlayerBoard = newPlayerBoard
+      }}
+  }
+  }
+  // TODO wtf is happening here 
+  val nbsMove: List[Pos] = collectList[Pos]{neighboursOf(solutionBoard.size, move, 1)}
+  nbsMove.foreach{nb => 
+  with on[OutOfBounds].panic
+
+  val oldState = solutionBoard.get(nb.r).get(nb.c)
+  val oldPState = playerBoard.get(nb.r).get(nb.c)
+  oldState match {
+    case Mine() => {if(nb.posEquals(move)){
+      val adjMines = countAdjacentMines(newSolutionBoard,nb)
+      newSolutionBoard = newSolutionBoard.updateCell(nb,Number(adjMines))
+    }else{
+      newSolutionBoard = newSolutionBoard
+    }}
+    case _ => {val adjMines = countAdjacentMines(newSolutionBoard,nb); 
+      newSolutionBoard = newSolutionBoard.updateCell(nb,Number(adjMines))
+      oldPState match {
+        case Number(n) => newPlayerBoard = newPlayerBoard.updateCell(nb, Number(adjMines))
+        case _ => newPlayerBoard = newPlayerBoard
+      }}
+  }
+  }*/
 
 }
 
-// perform the given move by returning the new Board after the given move
+// perform the given move by returning the new Player Board after the given move. Also returns the solution Board 
+// which get's modified only if a mine has to be replaced due to fair rules
 // uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
 def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): (Board, Board)/{gameOver} = {
   var newPlayerBoard = playerBoard
@@ -405,14 +533,22 @@ def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action)
           {
             val probs = calculateProbabilities(generateRules(playerBoard))
             if(replacementNeeded(solutionBoard, probs, pos)){
-              newSolutionBoard = replaceMine(solutionBoard, playerBoard, pos)
+              println("make move: replacement needed")
+              val newMinePos = findCandidate(solutionBoard, playerBoard, pos)
+              val newBoards = replaceMine(solutionBoard, playerBoard, pos, newMinePos)
+              newSolutionBoard = newBoards.first
+              newPlayerBoard = newBoards.second
+              println("make move: updated solution board:")
+              printBoard(newSolutionBoard)
+              println("makeMove: updated player Board:")
+              printBoard(newPlayerBoard)
             }
             val newcellStateSolution = newSolutionBoard.get(pos.r).get(pos.c)
             newcellStateSolution match {
-          case Mine() => do gameOver(solutionBoard)
-          case _ => 
-            val (updatedPlayerBoard, _) = newPlayerBoard.floodFill(solutionBoard, pos,[])
-            newPlayerBoard = updatedPlayerBoard
+              case Mine() => do gameOver(solutionBoard) // TODO not possible?
+              case _ => 
+                val (updatedPlayerBoard, _) = newPlayerBoard.floodFill(newSolutionBoard, pos,[])
+                newPlayerBoard = updatedPlayerBoard
         }
           }
       }
@@ -433,6 +569,8 @@ def parseCommand(command: List[String], boardSize: Int): Command/{invalidInput} 
     if(a == "h"){
       cmd = Help()
     }
+    else if(a == "r"){cmd = Rules()}
+
     else if(a == "q"){
       cmd = Quit()
     }
@@ -493,6 +631,7 @@ def getFirstMove(boardSize: Int): Pos = {
 }
 
 def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
+
   println("Welcome to Fair Minesweeper!")
   println("To start a new game, press Enter on your keyboard")
   with console;
@@ -550,12 +689,14 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
     end = true}
     case Help() => println(helpMessage)
     case Quit() => end = true//println("TODO Quit the game"); end = true
+    case Rules() => val rules = generateRules(playerBoard); println(genericShow(calculateProbabilities(rules)))
     }
     if(playerBoard.all{row => row.all{cell => cell match {
       case Hidden() => false
       case _ => true
       }
     }
+
   })try{do winGame(playerBoard)} with winGame{b => println(wonMessage)}
   }} with invalidInput{m => println(m); resume(())}
 }
@@ -648,8 +789,11 @@ def solver(startingBoard: Board, numMines : Int): Unit = {
 
 }
 
+
+
+
 def main(): Unit = {
-  playMinesweeper(9,25)
+  playMinesweeper(7,22)
   //val startingBoard = generatePlayerBoard(6)
   //solver(startingBoard, 3)
 }
