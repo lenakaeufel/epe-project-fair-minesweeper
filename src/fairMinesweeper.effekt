@@ -383,7 +383,7 @@ def replacementNeeded(solutionBoard: Board, probabilities: List[(Pos, Double)], 
 
 // find a new cell to hold the mine that will be removed from cell movePos
 // this cell has to be a Number() cell that is still Hidden on the Player Board
-def findCandidate(solutionBoard: Board, playerBoard: Board, movePos: Pos): Pos = {
+def findCandidate(solutionBoard: Board, playerBoard: Board, movePos: Pos): Pos/{reduceMineCount} = {
   var candidate: Pos = Pos(-1,-1) // should never stay that -> if we're looking for a candiate we can always be sure there exists one bc otherwise fair rules wouldn't be applied and we wouldn't move mine
   
   val nbs = collectList[Pos]{neighboursOf(solutionBoard.size, movePos, 1)}
@@ -403,6 +403,7 @@ def findCandidate(solutionBoard: Board, playerBoard: Board, movePos: Pos): Pos =
   }
   }
   println("replaceMine found candidate: " ++ genericShow(candidate))
+  if(candidate.posEquals(Pos(-1,-1))) do reduceMineCount()
   candidate
 }       
 
@@ -507,7 +508,7 @@ def replaceMine(solutionBoard: Board, playerBoard: Board, movePos: Pos, newMineP
 // perform the given move by returning the new Player Board after the given move. Also returns the solution Board 
 // which get's modified only if a mine has to be replaced due to fair rules
 // uses the flood fill algorithm to recursively uncover adjacent Number cells once an empty cell is uncovered
-def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): (Board, Board)/{gameOver} = {
+def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action): (Board, Board)/{gameOver,reduceMineCount} = {
   var newPlayerBoard = playerBoard
   var newSolutionBoard = solutionBoard
   try {
@@ -534,14 +535,14 @@ def makeMove(playerBoard: Board, solutionBoard: Board, pos: Pos, action: Action)
             val probs = calculateProbabilities(generateRules(playerBoard))
             if(replacementNeeded(solutionBoard, probs, pos)){
               println("make move: replacement needed")
-              val newMinePos = findCandidate(solutionBoard, playerBoard, pos)
+              try{val newMinePos = findCandidate(solutionBoard, playerBoard, pos)
               val newBoards = replaceMine(solutionBoard, playerBoard, pos, newMinePos)
               newSolutionBoard = newBoards.first
               newPlayerBoard = newBoards.second
               println("make move: updated solution board:")
               printBoard(newSolutionBoard)
               println("makeMove: updated player Board:")
-              printBoard(newPlayerBoard)
+              printBoard(newPlayerBoard)} with reduceMineCount{do reduceMineCount()}
             }
             val newcellStateSolution = newSolutionBoard.get(pos.r).get(pos.c)
             newcellStateSolution match {
@@ -631,7 +632,7 @@ def getFirstMove(boardSize: Int): Pos = {
 }
 
 def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
-
+  var mineCount = numMines
   println("Welcome to Fair Minesweeper!")
   println("To start a new game, press Enter on your keyboard")
   with console;
@@ -678,10 +679,11 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
   
   cmd match {
     case PerformAction(a,x,y) => try {
+      try{
       val newBoards = makeMove(playerBoard, solutionBoard, Pos(x, y), a)
       playerBoard = newBoards.first
       solutionBoard = newBoards.second
-      printBoard(playerBoard)
+      printBoard(playerBoard)} with reduceMineCount{mineCount = mineCount - 1}
     }with gameOver{b =>
     println(gameOverMessage)
     println("This is the solution board:")
@@ -691,13 +693,10 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
     case Quit() => end = true//println("TODO Quit the game"); end = true
     case Rules() => val rules = generateRules(playerBoard); println(genericShow(calculateProbabilities(rules)))
     }
-    if(playerBoard.all{row => row.all{cell => cell match {
-      case Hidden() => false
+    if(mineCount == playerBoard.join.count{cell => cell match {
+      case Number(n) => false
       case _ => true
-      }
-    }
-
-  })try{do winGame(playerBoard)} with winGame{b => println(wonMessage)}
+      }})try{do winGame(playerBoard)} with winGame{b => println(wonMessage)}
   }} with invalidInput{m => println(m); resume(())}
 }
 
@@ -714,6 +713,7 @@ def neighboursOf(pos: (Int,Int), radius: Int) = {
 }*/
 
 def solver(startingBoard: Board, numMines : Int): Unit = {
+  var mineCount = numMines
   val boardSize = startingBoard.size()
   var playerBoard = startingBoard
   printBoard(startingBoard)
@@ -768,10 +768,11 @@ def solver(startingBoard: Board, numMines : Int): Unit = {
       cmd match {
         case PerformAction(a,x,y) => try {
           println("performing action: " ++ genericShow(cmd))
+          try{
         val newBoards = makeMove(playerBoard, solutionBoard, Pos(x, y), a)
         playerBoard = newBoards.first
         solutionBoard = newBoards.second
-        printBoard(playerBoard)
+        printBoard(playerBoard)}with reduceMineCount{mineCount = mineCount - 1}
         } with gameOver{b =>
           println(gameOverMessage)
           println("Game Over..Shouldn't happen => the solver is wrong") // TODO
@@ -779,12 +780,10 @@ def solver(startingBoard: Board, numMines : Int): Unit = {
           end = true}
         case _ => println("shouldn't happen, something is wrong with the solver") // TODO
         }
-      if(numMines == playerBoard.count{row => row.all{cell => cell match { // TODO check
-        case Hidden() => true
-        case _ => false
-        }
-      }
-    }){try{end = true; do winGame(playerBoard)} with winGame{b => printBoard(playerBoard); println(wonMessage)}}
+      if(mineCount == playerBoard.join.count{cell => cell match {
+      case Number(n) => false
+      case _ => true
+      }}){try{end = true; do winGame(playerBoard)} with winGame{b => printBoard(playerBoard); println(wonMessage)}}
     }}} with invalidInput{m => println(m); resume(())}
 
 }
@@ -793,7 +792,7 @@ def solver(startingBoard: Board, numMines : Int): Unit = {
 
 
 def main(): Unit = {
-  playMinesweeper(7,22)
+  playMinesweeper(4,6)
   //val startingBoard = generatePlayerBoard(6)
   //solver(startingBoard, 3)
 }

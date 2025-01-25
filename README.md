@@ -31,14 +31,13 @@ Features that I 100% promise to be done
 - generating a random board each time the user starts the game
 - correct implementation of all the basic rules of minesweeper as well as the two additional rules for fair minesweeper
 
-  - Also implement chording: when an uncovered square with a number has exactly the correct number of adjacent squares flagged, performing a click with both mouse buttons on it (in my representation probably just trying to uncover the field with the number and if enough flags are around it, perform the chording, if not, tell the user this is not a valid move) will uncover all unmarked squares; This is called a Chord.
-
 - always notice when game is won as soon as all fields without a mine are uncovered and finish the game with the winning screen
 
 ## Can-have
 
 Features that might or might not be done
 
+- Also implement chording: when an uncovered square with a number has exactly the correct number of adjacent squares flagged, performing a click with both mouse buttons on it (in my representation probably just trying to uncover the field with the number and if enough flags are around it, perform the chording, if not, tell the user this is not a valid move) will uncover all unmarked squares; This is called a Chord.
 - more built in difficulty levels (e.g. Intermediate 16x16 with 40 mines, Advanced 24x24 with 99 mines)
 - user specified difficulty of the game (board size, number of mines)
 - different game modes (timer, hints, losing a life instead of immediate game over when uncovering bomb, no flags allowed)

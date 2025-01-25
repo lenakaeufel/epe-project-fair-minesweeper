@@ -14,10 +14,12 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - ❌ implement chording
 
-- ❌ properly notice when game is won:
+- 🟡 properly notice when game is won:
 
   - game should be won once all cells not containing a mine are uncovered
   - it does **not** matter if all the mines are flagged or not
+  - still TODO: check if reduceMineCount actually works by doing this:
+    - ❌ when moving a Mine, only move it to cells with only Hidden neighbours so that uncovered cells aren't changed
 
 - ❌ Restarting the Game:
 

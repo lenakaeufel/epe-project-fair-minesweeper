@@ -79,6 +79,7 @@ val afterRemoveMinePlayer: Board = [
 
 
 def playMinesweeperdebug(boardSize: Int, numMines: Int): Unit = {
+  var mineCount = numMines
   println("Welcome to Fair Minesweeper!")
   println("To start a new game, press Enter on your keyboard")
   var playerBoard = problematicPlayerBoard
@@ -122,10 +123,11 @@ def playMinesweeperdebug(boardSize: Int, numMines: Int): Unit = {
   
   cmd match {
     case PerformAction(a,x,y) => try {
+      try{
       val newBoards = makeMove(playerBoard, solutionBoard, Pos(x, y), a)
       playerBoard = newBoards.first
       solutionBoard = newBoards.second
-      printBoard(playerBoard)
+      printBoard(playerBoard)} with reduceMineCount{mineCount = mineCount - 1}
     }with gameOver{b =>
     println(gameOverMessage)
     println("This is the solution board:")
@@ -135,13 +137,10 @@ def playMinesweeperdebug(boardSize: Int, numMines: Int): Unit = {
     case Quit() => end = true//println("TODO Quit the game"); end = true
     case Rules() => val rules = generateRules(playerBoard); println(genericShow(calculateProbabilities(rules)))
     }
-    if(playerBoard.all{row => row.all{cell => cell match {
-      case Hidden() => false
+    if(mineCount == playerBoard.join.count{cell => cell match {
+      case Number(n) => false
       case _ => true
-      }
-    }
-
-  })try{do winGame(playerBoard)} with winGame{b => println(wonMessage)}
+      }})try{do winGame(playerBoard)} with winGame{b => println(wonMessage)}
   }} with invalidInput{m => println(m); resume(())}
 }
 
@@ -150,7 +149,7 @@ def main() = {
   printBoard(problematicPlayerBoard)
   val ffres = floodFill(problematicPlayerBoard,problematicSolutionBoard,Pos(6,0),[])
   printBoard(ffres.first)*/
-  //playMinesweeperdebug(7,22)
+  playMinesweeperdebug(7,22)
 
   // test if removing a mine from (1,2) to (1,1) works correctly for an example game state
   println(suite("replaceMine tests"){

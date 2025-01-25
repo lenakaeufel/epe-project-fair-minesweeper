@@ -25,6 +25,7 @@ extern def randomInt(minInclusive: Int, maxExclusive: Int): Int =
 effect invalidInput(msg: String): Unit
 effect gameOver(finalBoard: Board): Unit
 effect winGame(finalBoard: Board): Unit
+effect reduceMineCount(): Unit
 
 // custom type to represent the state of a cell of the Board
 // Invariants: Player board has only Hidden, Number and Flag cells
