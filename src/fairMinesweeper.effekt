@@ -1,0 +1,410 @@
+module src/fairMinesweeper
+
+import tty
+import io/console
+import src/utils
+import stream
+//import set
+
+import src/fairRules
+import src/safeMoves
+
+
+// Generates a new solution board of size `size` by placing `numMines` mines randomly on a new, empty board of the given size
+// All cells not containing a mine will be assigned a number representing the count of adjacent mines
+// Ensures that the first move is safe, meaning the cell at this position does not contain a mine and no cell adjacent to the first move is a mine
+def generateSolutionBoard(size: Int, numMines: Int, firstMove: Pos): Board/{invalidInput} = {
+  if(numMines > size*size - 9){ // TODO move this check earlier in the playMinesweeper
+    do invalidInput("invalid input: number of mines mustn't exceed the number of cells")
+  }
+  if(size < 1){
+    do invalidInput("invalid input: size must be a positive number")
+  }
+  if(numMines < 0){
+    do invalidInput("invalid input: number of mines musn't be negative")
+  }
+  var board: Board = fill[List[CellState]](size, fill[CellState](size, Number(0))) 
+  val safeZone: List[Pos] = Cons(firstMove, collectList[Pos]{neighboursOf(size, firstMove, 1)})
+
+  // Mine Placement
+  var minesPlaced = 0
+  // var minedPositions = emptyGeneric[Pos] // Track the positions where mines are placed TODO uncomment when Set in Effekt
+  while (minesPlaced < numMines) {
+    val pos = Pos(randomInt(0, size), randomInt(0, size))
+    with on[OutOfBounds].panic
+    board.get(pos.r).get(pos.c)match {
+      case Number(0) => 
+        if(safeZone.any{p => p.posEquals(pos)} == false){
+          board = updateCell(board, pos, Mine())
+          minesPlaced = minesPlaced + 1
+        }
+      case _ => board = board // TODO: better way to do this?
+    }
+    /*
+    // Ensure the position is not already mined, and not in the safe zone
+    if (minedPositions.contains(pos) == false && safeZone.any{p => p.posEquals(Pos(row,col))} == false) {
+      board = updateCell(board, pos, Mine()) // Place a mine
+      minedPositions.insert(pos) // Mark the position as mined
+      minesPlaced = minesPlaced + 1
+    }*/
+  }
+  // Correct Placement of Numbers based on given Mine Placement
+  board.foreachIndex{ (row_idx, row) =>
+    row.foreachIndex{ (col_idx, col) => 
+      if(isMine(board, Pos(row_idx, col_idx)) == false){
+        val mines = countAdjacentMines(board, Pos(row_idx, col_idx))
+        board = board.updateCell(Pos(row_idx, col_idx), Number(mines))
+      }
+    }
+  }
+  board
+}
+
+// Generates a new, board of size `size` containing only Hidden() cells to represent the initial state of the Player
+def generatePlayerBoard(size: Int): Board = {
+  fill[List[CellState]](size, fill[CellState](size, Hidden())) 
+}
+
+// Validates a given player's move based on the current state of the player board
+def isValidPlayerMove(playerBoard: Board, pos:Pos, action: Action): Bool/{invalidInput} = {
+  if(not(isValidIndex(playerBoard.size, pos))){
+    do invalidInput("invalid input: given coordinates (row,col) = (" ++ show(pos.r) ++ "," ++ show(pos.c) ++ ") " ++ "are not within the board of size " ++ show(playerBoard.size)); false
+  } 
+  else {// index is valid for board
+    with on[OutOfBounds].panic
+    playerBoard.get(pos.r).get(pos.c) match {
+      case Number(n) => do invalidInput("invalid input: cells already uncovered can't be modified"); false
+      case Mine() => do invalidInput("Invalid state: Player board can't have uncovered mines"); false
+      case _ => true //for Hidden and Flagged cells, all actions are possible
+    }
+  }
+}
+
+// Performs a flood-fill to uncover multiple cells on the player's board based on a given move and returns the new Board as well as the visited cells
+// precondition: the move at `pos` of the first call of floodFill is a valid one
+// Recursively uncovers all connected empty cells (`Number(0)`)
+// Stops recursive uncovering when a cell contains a number greater than 0, but still uncovers this cell
+// Does not uncover mines
+def floodFill(solutionBoard: Board, playerBoard: Board, pos: Pos): Board = {
+  def floodFillworker(solutionBoard: Board, playerBoard: Board, pos: Pos, visited: List[Pos]): (Board, List[Pos]) = {
+    if(visited.any{cell => cell.posEquals(pos)}){// if current cell already visited
+      (playerBoard, visited)//visited stays the same (acts like a Set) TODO change into a Set once possible
+    } 
+    else{
+    val updatedVisited = Cons(pos, visited)
+    
+    with on[OutOfBounds].panic
+    val cellStateSolution = solutionBoard.get(pos.r).get(pos.c)
+    val updatedBoard = playerBoard.updateCell(pos, cellStateSolution) 
+
+    cellStateSolution match {
+      case Number(0) => // Collect non-diagonal neighbors (they can't be mines) and recursively apply flood-fill
+        val neighbours: List[Pos] = collectList{nonDiagonalNeighboursOf(playerBoard.size,pos)}
+        neighbours.foldLeft((updatedBoard, updatedVisited)){(acc, neighbour) => 
+          val (currentBoard, currentVisited) = acc
+          floodFillworker(solutionBoard, currentBoard, neighbour, currentVisited)
+        }
+      case Number(n) => (updatedBoard, updatedVisited) // in case of Numbers > 0 still uncover them but then stop recursion
+      case _ => (playerBoard, updatedVisited) // Do not uncover mines, keep the board unchanged
+      }
+    }
+  }
+  floodFillworker(solutionBoard, playerBoard, pos, []).first
+}
+
+// Performs the given move, updating the Player Board and potentially the Solution Board (in case of mine replacement).
+// Handles the following:
+// - Flags a cell or toggles its state between `Flagged` and `Hidden`.
+// - Uncovers a cell and triggers a flood-fill uncovering adjacent cells for `Number(0)` cells.
+// - Replaces mines if necessary for maintaining fair rules
+// If an invalid move is attempted, the function safely returns the original boards without modification.
+def makeMove(solutionBoard: Board, playerBoard: Board, pos: Pos, action: Action): (Board, Board)/{gameOver, reduceMineCount} = {
+  var updatedSolutionBoard = solutionBoard
+  var updatedPlayerBoard = playerBoard
+  try {
+    if(not(isValidPlayerMove(playerBoard, pos, action))){
+      (playerBoard, solutionBoard)
+    } 
+    else {
+      with on[OutOfBounds].panic
+      val cellStateSolution = solutionBoard.get(pos.r).get(pos.c)
+      val cellStatePlayer = playerBoard.get(pos.r).get(pos.c)
+
+      action match {
+        case Flag() => cellStatePlayer match { // move is valid => only first two cases (Hidden/Flagged) possible
+          case Hidden() => updatedPlayerBoard = updatedPlayerBoard.updateCell(pos, Flagged())
+          case Flagged() => updatedPlayerBoard = updatedPlayerBoard.updateCell(pos, Hidden())
+          case _ => ()//do invalidInput("Unexpected state: move validation should prevent this case.")
+        }
+        case Uncover() => 
+            // Perform mine replacement if necessary
+            if(replacementNeeded(updatedSolutionBoard, updatedPlayerBoard, pos)){
+              //println("Mine replacement triggered.")
+              try{
+                val newMinePos = determineNewMinePosition(solutionBoard, playerBoard, pos)
+                val (updatedSolution, updatedPlayer) = replaceMine(solutionBoard, playerBoard, pos, newMinePos)
+                updatedSolutionBoard = updatedSolution
+                updatedPlayerBoard = updatedPlayer
+              } with reduceMineCount{ 
+                  do reduceMineCount()
+              }
+            }
+            // Perform uncovering after potential mine replacement
+            updatedSolutionBoard.get(pos.r).get(pos.c) match {
+              case Mine() => do gameOver("You should have known this was a mine based on the state of your Board", solutionBoard) // TODO not possible?
+              case _ => updatedPlayerBoard = floodFill(updatedSolutionBoard, updatedPlayerBoard, pos)
+            }
+      }
+    (updatedSolutionBoard, updatedPlayerBoard)
+    }
+  } with invalidInput{ m =>
+    println(m)
+    (solutionBoard, playerBoard)
+  }
+}
+
+// Parses a user command and converts it into a corresponding Command object
+// Returns a Command or raises an `invalidInput` exception for invalid user inputs.
+def parseCommand(userInputs: List[String], boardSize: Int): Command/{invalidInput} = {
+  val len = userInputs.size
+  var cmd = Help() // Default to `Help()` in case of invalid inputs or unexpected behavior
+  with on[OutOfBounds].panic
+  if(len == 1){
+    val a = userInputs.get(0)
+    if(a == "h"){
+      cmd = Help()
+    }
+    else if(a == "r"){cmd = Rules()}
+
+    else if(a == "q"){
+      cmd = Quit()
+    }
+    else{
+      do invalidInput("invalid input: you didn't type a valid action :(" )
+      cmd = Help()
+    }
+  }
+  else if(len == 2){
+    do invalidInput("invalid input: col coordinate is missing")
+    cmd = Help()
+  }
+  else if(len == 3){
+    with on[OutOfBounds].panic
+    val a: String = userInputs.get(0)
+    val xString: String = userInputs.get(1)
+    with on[WrongFormat].default{cmd = Help()}
+    val x: Int = xString.toInt()
+    val yString: String = userInputs.get(2)
+    val y: Int = yString.toInt()
+
+    if(isValidIndex(boardSize, Pos(x, y))){
+      if(a == "f"){
+        cmd = PerformAction(Flag(),Pos(x,y))
+      }
+      else {
+        if(a == "u"){
+        cmd = PerformAction(Uncover(),Pos(x,y))
+      }
+       else {do invalidInput("invalid input: you didn't type a correct action" ++ helpMessage)}
+    }}
+    else{do invalidInput("invalid input: given coordinates (row,col) = (" ++ show(x) ++ "," ++ show(y) ++ ") " ++ "are not within the board of size " ++ show(boardSize))}
+  }
+  else{do invalidInput("TODO: wrong number of actions not possible?!")}
+
+  cmd
+}
+
+// Processes user inputs by converting them into a corresponding Command object
+// Returns a Command or raises an `invalidInput` exception for invalid user inputs.
+def processUserInput(userInputs: List[String], boardSize: Int): Command/{invalidInput} = {
+  var cmd = Help() // Default to `Help()` in case of invalid inputs or unexpected behavior
+  with on[OutOfBounds].panic
+  
+  userInputs.size match {
+    case 1 =>
+      userInputs.get(0) match {
+        case "h" => cmd = Help()
+        case "r" => cmd = Rules()
+        case "q" => cmd = Quit()
+        case _ => do invalidInput("Invalid input: Unknown command. Use 'h' for help." )
+                  cmd = Help()
+      }
+    case 2 => do invalidInput("Invalid input: Missing column coordinate")
+              cmd = Help()
+    case 3 =>
+      with on[OutOfBounds].panic
+      val action: String = userInputs.get(0)
+      val xString: String = userInputs.get(1)
+      with on[WrongFormat].default{ do invalidInput("Invalid input: Coordinates must be integers. Use 'h' for help."); cmd = Help()}
+      val x: Int = xString.toInt()
+      val yString: String = userInputs.get(2)
+      val y: Int = yString.toInt()
+  
+      if(isValidIndex(boardSize, Pos(x, y))){
+        action match {
+          case "f" => cmd = PerformAction(Flag(),Pos(x,y))
+          case "u" => cmd = PerformAction(Uncover(),Pos(x,y))
+          case _ => do invalidInput("Invalid input: Unknown action.")
+                    cmd = Help()
+        }
+      } else {
+        do invalidInput("Invalid input: Coordinates (row, col) = (" ++ show(x) ++ "," ++ show(y) ++ ") " ++ "are out of bounds for the board of size " ++ show(boardSize))
+      }
+    case _ => do invalidInput("Invalid input: Incorrect number of arguments (shouldn't be possible).")
+              cmd = Help()
+    }
+  cmd
+}
+
+// Asks the user for the coordinates of the first move, ensuring it is a valid position
+// For the first move, only uncovering is possible/makes sense, therefore we only need a position from the user
+def getFirstMove(boardSize: Int): Pos/{invalidInput} = {
+  var firstMove = Pos(-1, -1) // TODO possible to use Option instead?
+  
+  while (firstMove.r == -1 && firstMove.c == -1) {
+    println("To uncover the first cell, enter the number of the row (0 to " ++ show(boardSize - 1) ++ "):")
+    with console
+    val rowInput = do readLine()
+    println("Now enter the number of the column (0 to " ++ show(boardSize - 1) ++ "):")
+    val colInput = do readLine()
+    
+    // Attempt to parse inputs to integers
+    with on[WrongFormat].default{ 
+      do invalidInput("Invalid input: Both row and column must be integers. Received: row = " ++ show(rowInput) ++ ", col = " ++ show(colInput) ++ ". Please try again.")
+    }
+    val row = rowInput.toInt
+    val col = colInput.toInt
+    val potentialMove = Pos(row, col)
+
+    if (isValidIndex(boardSize, potentialMove)) {
+      firstMove = potentialMove // Valid move detected
+    } else {
+      println("Invalid coordinates: (" ++ show(row)++ "," ++ show(col) ++ " are out of bounds. Please try again.")
+    }
+  }
+  firstMove
+}
+
+// Main function to play the Fair Minesweeper game.
+// - manages the overall game loop, including initializing the game,
+//   handling user input, and determining win/lose conditions. It allows the user 
+//   to play multiple games in a single session by prompting whether they want to 
+//   replay or quit after each game.
+def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
+
+  def promptReplay(): Bool/{invalidInput} = {
+    println("Do you want to play again? (y = yes, q = quit):")
+    with console;
+    val input = do readLine()
+    input match {
+      case "y" => true
+      case "q" => false
+      case _ =>
+        do invalidInput("Invalid input. Please type 'y' to play again or 'q' to quit.")
+        promptReplay()
+    }
+  }
+
+  def gameLoop(solutionBoard: Board, playerBoard: Board, mineCount: Int): Bool = {
+    var currentPlayerBoard = playerBoard
+    var currentSolutionBoard = solutionBoard
+    var currentMineCount = mineCount
+    var endGame = false
+
+    while (not(endGame)) {
+      try {
+        println(helpMessage)
+        var userInputs: List[String] = []
+        with console;
+        val action = do readLine()
+        userInputs = userInputs.append([action])
+
+        if (action == "u" || action == "f") {
+          println("Enter the row for your move:")
+          val row = do readLine()
+          userInputs = userInputs.append([row])
+
+          println("Enter the column for your move:")
+          val col = do readLine()
+          userInputs = userInputs.append([col])
+        }
+        val command = processUserInput(userInputs, boardSize)
+        command match {
+          case PerformAction(action, Pos(row, col)) =>
+            try {
+              val (newSolution, newPlayer) = makeMove(currentSolutionBoard, currentPlayerBoard, Pos(row, col), action)
+              currentSolutionBoard = newSolution
+              currentPlayerBoard = newPlayer
+              printBoard(currentPlayerBoard)
+            } with reduceMineCount {
+              currentMineCount = currentMineCount - 1
+            } with gameOver { (why, solution) =>
+              println(why)
+              println(gameOverMessage)
+              println("This is the solution board:")
+              printBoard(solution)
+              endGame = true
+            }
+          case Help() => println(helpMessage)
+          case Quit() => endGame = true
+          case Rules() => printRules()
+            // println(genericShow(safeMoves(currentPlayerBoard)))
+        }
+        if (currentMineCount == currentPlayerBoard.join.count { // Check if all Cells except the Mines are uncovered as win condition
+          case Number(_) => false
+          case _ => true
+        }) try {
+          do winGame(currentPlayerBoard)
+        } with winGame { board =>
+          println(wonMessage)
+          endGame = true
+        }
+      } with invalidInput { msg =>
+        println(msg)
+        resume(())
+      }
+    }
+    try{
+      promptReplay()
+    } with invalidInput{
+      msg => println(msg)
+      resume(())
+    }
+  }
+
+  // Main game flow
+  var playAgain = true
+  while (playAgain) {
+    println("Welcome to Fair Minesweeper!")
+    printRules()
+    println("To start a new game, press Enter on your keyboard")
+    with console
+    do readLine()
+
+    var mineCount = numMines
+    var playerBoard = generatePlayerBoard(boardSize)
+    printBoard(playerBoard)
+
+    try{
+      try {
+        val firstMove = getFirstMove(boardSize)
+        val solutionBoard = generateSolutionBoard(boardSize, numMines, firstMove)
+        //printBoard(solutionBoard)
+        playerBoard = floodFill(solutionBoard, playerBoard, firstMove)
+        printBoard(playerBoard)
+        playAgain = gameLoop(solutionBoard, playerBoard, mineCount)
+      } with invalidInput{msg => 
+        println(msg); resume(())}
+    } with invalidInput { msg =>
+      println(msg)
+    }
+  }
+  println("Thank you for playing Fair Minesweeper! Goodbye!")
+}
+
+def main(): Unit = {
+  playMinesweeper(5,10)
+}
+
+
+

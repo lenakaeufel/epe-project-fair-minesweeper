@@ -1,5 +1,31 @@
-import src/utils
 import stream
+
+import src/utils
+
+// Finds the positions of "interesting" cells on the player's board for solving. 
+// * A cell is considered interesting if it provides new information for solving: 
+// * - It is a Number(n) cell (not Hidden or Flagged), and
+// * - It has at least one Hidden neigbour 
+def interestingCells(playerBoard: Board): List[Pos] = {
+  var cells = []
+  playerBoard.foreachIndex{ (row_idx, row) =>
+    row.foreachIndex{ (col_idx, col) => 
+      with on[OutOfBounds].panic
+      playerBoard.get(row_idx).get(col_idx) match {
+        case Number(n) => // cells with Numbers can be interesting (if they have >= 1 Hidden neighbour)
+          val neighbours: List[Pos] = collectList{neighboursOf(playerBoard.size,Pos(row_idx,col_idx), 1)}
+          if (neighbours.any{n => 
+            with on[OutOfBounds].panic
+            playerBoard.get(n.r).get(n.c) match {
+              case Hidden() => true
+              case _ => false
+            }}) cells = Cons(Pos(row_idx,col_idx), cells)
+        case _ => cells = cells // Hidden and Flagged cells aren't interesting, Mines on the player's board invalid so not possible either
+      }
+    }
+  }
+  cells
+}
 
 // since computing all the probabilities is too much computation, already for 9x9 Boards, try different approach:
 // take in account the flags the player put and identify safe or unsafe cells like this:
@@ -7,73 +33,104 @@ import stream
 // 2. guaranteed mines: for a Number(n) cell: if #Hidden neighbours == n - #Flagged neighbours, all Hidden neighbours are mines
 // Now a safe move is either uncovering a safe cell, or flagging a guaranteed mine cell. 
 // If no safe moves exists, any move has to be safe
-// If a safe move exists, but the player picks another one, immediate game over
+// If a safe Uncover move exists, but the player picks another one, immediate game over
 // 
 def safeMoves(playerBoard: Board): List[Command] = {
+  var commands = []
 
-  // Finds the positions of "interesting" cells on the player's board for solving. 
-  // * A cell is considered interesting if it provides new information for solving: 
-  // * - It is a Number(n) cell (not Hidden or Flagged), and
-  // * - It has at least one Hidden neigbour 
-  def interestingCells(playerBoard: Board): List[Pos] = {
-    var cells = []
-    playerBoard.foreachIndex{ (row_idx, row) =>
-      row.foreachIndex{ (col_idx, col) => 
-        with on[OutOfBounds].panic
-        playerBoard.get(row_idx).get(col_idx) match {
-          case Number(n) => // cells with Numbers can be interesting (if they have >= 1 Hidden neighbour)
-            val neighbours: List[Pos] = collectList{neighboursOf(playerBoard.size,Pos(row_idx,col_idx), 1)}
-            if (neighbours.any{n => 
-              with on[OutOfBounds].panic
-              playerBoard.get(n.r).get(n.c) match {
-                case Hidden() => true
-                case _ => false
-              }}) cells = Cons(Pos(row_idx,col_idx), cells)
-          case _ => cells = cells // Hidden and Flagged cells aren't interesting, Mines on the player's board invalid so not possible either
+  interestingCells(playerBoard).foreach{pos =>
+    with on[OutOfBounds].panic
+    playerBoard.get(pos.r).get(pos.c) match {
+      case Number(n) => 
+        val neighbours = collectList[Pos]{neighboursOf(playerBoard.size, pos, 1)}
+        var hidden = []
+        var flagCount = 0
+        
+        neighbours.foreach{nb =>
+          with on[OutOfBounds].panic
+          playerBoard.get(nb.r).get(nb.c) match {
+            case Hidden() => hidden = Cons(nb, hidden)
+            case Flagged() => flagCount = flagCount + 1
+            case _ => ()
+          }
         }
-      }
-    }
-    cells
+        // Add safe moves if found
+        /*if (hidden.size == n - flagCount || flagCount == n) {
+          val action = if (flagCount == n) Uncover() else Flag()
+          hidden.foreach{ nb =>
+            if(not(commands.any{case PerformAction(_, p) => p.posEquals(nb); case _ => false})) {
+              commands = Cons(PerformAction(action, nb), commands)
+            }
+          }*/
+          if(hidden.size == n - flagCount){
+              hidden.foreach{ nb =>
+              if(not(commands.any{c => 
+                c match {
+                  case PerformAction(a,p) =>
+                    p.posEquals(nb)
+                  case _ => false}})) commands = Cons(PerformAction(Flag(), nb), commands)}
+              }
+            else if(flagCount == n){
+                hidden.foreach{ nb =>
+                if(not(commands.any{c => 
+                c match {
+                  case PerformAction(a,p) =>
+                    p.posEquals(nb)
+                  case _ => false}})) commands = Cons(PerformAction(Uncover(), nb), commands)}
+            }
+      case _ => ()
+    }    
   }
+  commands
+}
 
-
+/*
 def findSafeMoves(): List[Command] = {
     var commands = []
-    
-    interestingCells(playerBoard).foreach{pos =>
+    val interestingC = interestingCells(playerBoard)
+    //println("interesting Cells: " ++ genericShow(interestingC))
+    interestingC.foreach{cellPos =>
       with on[OutOfBounds].panic
-      playerBoard.get(pos.r).get(pos.c) match {
+      playerBoard.get(cellPos.r).get(cellPos.c) match {
         case Number(n) => 
-          // Get and classify neighbors
-          val neighbours = collectList[Pos]{neighboursOf(playerBoard.size, pos, 1)}
-          var hidden = []
-          var flagCount = 0
-          
-          neighbours.foreach{nb =>
+          var hiddenCount = 0
+          var flaggedCount = 0
+          var relevantNeighbours = []
+          val neighbours: List[Pos] = collectList{neighboursOf(playerBoard.size,cellPos, 1)}
+          //println("neighbours of " ++ genericShow(cellPos))
+          //println(genericShow(neighbours))
+          neighbours.foreach{neighbour =>
             with on[OutOfBounds].panic
-            playerBoard.get(nb.r).get(nb.c) match {
-              case Hidden() => hidden = Cons(nb, hidden)
-              case Flagged() => flagCount = flagCount + 1
-              case _ => ()
+            playerBoard.get(neighbour.r).get(neighbour.c) match {
+              case Hidden() => hiddenCount = hiddenCount + 1; relevantNeighbours = Cons(neighbour, relevantNeighbours)
+              case Flagged() => flaggedCount = flaggedCount + 1; relevantNeighbours = Cons(neighbour, relevantNeighbours)
+              case  => ()
             }
           }
-          
-          // Add safe moves if found
-          if (hidden.size == n - flagCount || flagCount == n) {
-            val action = if (flagCount == n) Uncover() else Flag()
-            hidden.foreach{ nb =>
-              if(not(commands.any{case PerformAction(_, p) => p.posEquals(nb); case _ => false})) {
-                commands = Cons(PerformAction(action, nb), commands)
+            if(hiddenCount == n - flaggedCount){
+              relevantNeighbours.foreach{ nb =>
+              if(not(commands.any{c => 
+                c match {
+                  case PerformAction(a,p) =>
+                    p.posEquals(nb)
+                  case  => false}})) commands = Cons(PerformAction(Flag(), nb), commands)}
               }
+            else if(flaggedCount == n){
+                relevantNeighbours.foreach{ nb =>
+                if(not(commands.any{c => 
+                c match {
+                  case PerformAction(a,p) =>
+                    p.posEquals(nb)
+                  case  => false}})) commands = Cons(PerformAction(Uncover(), nb), commands)}
             }
-          }
-        case _ => ()
+        case  => commands = commands
       }    
     }
+    //println(genericShow(commands))
     commands
-}
-findSafeMoves()
-}
+  }
+  findSafeMoves()
+}*/
 
 def noSafeUncovering(safeMoves: List[Command]): Bool = {
   if(safeMoves.isEmpty) true
@@ -90,26 +147,4 @@ def noSafeUncovering(safeMoves: List[Command]): Bool = {
       }
     }
   }
-}
-
-// checks if a mine has to be moved based on the computed safe moves
-// if the given move is on a cell the user could have been certain there is no mine on it, he immediately looses
-// if the given move is on a cell the user couldn't have been certain there is a mine on it, in cases there is a mine it get's replaced
-// returns true if mine on move needs to be replaced, false if not.
-def replacementNeeded(solutionBoard: Board, playerBoard: Board, move: Pos): Bool/{gameOver} = {
-  val moveIsMine = isMine(solutionBoard, move)
-  val safeMoves = safeMoves(playerBoard)
-  if(noSafeUncovering(safeMoves)){ // no safe cell exists => move has to be safe
-    // TODO: if it should only be safe to uncover neighbours of already uncovered cells: additional check: && probabilities.any{p => p.posEquals(move)}
-    println("replacementNeeded: safeCells = Nil() -> no safe move exists " ++ show(moveIsMine))
-    moveIsMine // if the move is a mine it has to be replaced (true), otherwise we don't have to do anything (false)
-  } else{// we now know there is at least one safe uncovering in safeMoves 
-    if(safeMoves.any{m => 
-      m match {
-        case PerformAction(Uncover(), p) => p.posEquals(move)
-        case PerformAction(Flag(), p) => p.posEquals(move) // the player currently tries to uncover a cell he can be sure is a mine -> don't handle here
-        case _ => false
-      }}) {false}
-      else{do gameOver("You guessed but there was a safe move", solutionBoard); false}
-    }
 }

@@ -2,4 +2,6 @@ module main // must be named same as the file!
 
 import src/fairMinesweeper
 
-def main()= println("Under construction")
+def main() = {
+  playMinesweeper(6,10)
+}

@@ -1,81 +1,107 @@
 import src/utils
 import src/fairMinesweeper
-import src/probabilities
+import src/safeMoves
+import src/fairRules
 
-def solver(startingBoard: Board, numMines : Int): Unit = {
+
+def solver(startingBoard: Board, numMines: Int): Unit = {
   var mineCount = numMines
   val boardSize = startingBoard.size()
   var playerBoard = startingBoard
   printBoard(startingBoard)
   val firstMove = Pos(randomInt(0, boardSize), randomInt(0, boardSize))
+  println("Solvers first move is uncovering (" ++ show(firstMove.r) ++ "," ++ show(firstMove.c) ++ ")")
 
-  try{
-  var solutionBoard = generateSolutionBoard(boardSize, numMines, firstMove)
-  printBoard(solutionBoard)
+  try {
+    var solutionBoard = generateSolutionBoard(boardSize, numMines, firstMove)
+    // Perform the first move (safe by definition)
+    playerBoard = floodFill(solutionBoard, startingBoard, firstMove)
+    printBoard(playerBoard)
 
-  //playerBoard = playerBoard.updateCell(firstMove.first, firstMove.second, Number(0)) // safe because we handle this move in generateSolutionBoard
-  val (newPlayerBoard, _) = startingBoard.floodFill(solutionBoard, firstMove, [])
-  playerBoard = newPlayerBoard
-  printBoard(playerBoard)
+    var end = false
+    while (not(end)) {
+      val safeMoves = safeMoves(playerBoard)
 
-  var end = false
-  while(end != true){
+      if (safeMoves.isEmpty) {
+        println("No more safe moves can be determined.")
+        // Check if all remaining cells are mines
+        if (mineCount == playerBoard.join.count {
+          case Hidden() => true
+          case _ => false
+        }) {
+          try {
+            println("Solver has successfully flagged all mines.")
+            do winGame(playerBoard)
+          } with winGame { _ =>
+            printBoard(playerBoard)
+            println(wonMessage)
+            end = true
+          }
+        } else {
+          println("Solver has to guess since no safe move is possible")
+          with on[OutOfBounds].panic
+          val hiddenCells = playerBoard.getHiddenCells()
+          val guess = hiddenCells.get(randomInt(0, hiddenCells.size))
+          println("Solver is guessing at (" ++ show(guess.r) ++ "," ++ show(guess.c) ++ ")")
 
-    val rules = generateRules(playerBoard)
-    val probabilities = calculateProbabilities(rules)
-    println("Probabilities: " ++ genericShow(probabilities))
-    val (minValue, positions) = probabilities.foldLeft((2.toDouble, [])) { // 2 as initial min (= max value) bc probabilities are max 1
-      (el, prob) =>
-        if (prob.second < el.first) (prob.second, [prob.first]) // New minimum found -> add it's position to new list of output positions
-        else if (prob.second == el.first) (el.first, Cons(prob.first, el.second)) // Same as current minimum -> append the position to the list
-        else (el.first, el.second) // probability higher than minimum -> not interesting, just ignore it 
+          try {
+            try {
+              val (newSolutionBoard, newPlayerBoard) = makeMove(solutionBoard, playerBoard, guess, Uncover())
+              solutionBoard = newSolutionBoard
+              playerBoard = newPlayerBoard
+              printBoard(playerBoard)
+            } with reduceMineCount {
+              mineCount = mineCount - 1
+            } 
+          } with gameOver { (reason, finalBoard) =>
+            println(reason)
+            println(gameOverMessage)
+            println("Game Over: The solver guessed wrong.")
+            printBoard(finalBoard)
+            end = true
+          }
+        }
+      } else {
+        // Perform all safe moves
+        safeMoves.foreach {
+          case PerformAction(action, Pos(row, col)) =>
+            try {
+              println("Performing action: " ++ genericShow(action) ++ " at (" ++ show(row) ++ "," ++ show(col) ++ ")")
+              val (newSolutionBoard, newPlayerBoard) = makeMove(solutionBoard, playerBoard, Pos(row, col), action)
+              solutionBoard = newSolutionBoard
+              playerBoard = newPlayerBoard
+              printBoard(playerBoard)
+            } with reduceMineCount {
+              mineCount = mineCount - 1
+            } with gameOver { (reason, finalBoard) =>
+              println(reason)
+              println(gameOverMessage)
+              println("Game Over: The solver made a mistake.")
+              printBoard(finalBoard)
+              end = true
+            }
+          case _ => ()
+        }
       }
-
-    val actionPositions: List[Pos] = positions
-    println("Action Positions: " ++ genericShow(actionPositions))
-    var commands: List[Command] = []
-    if(minValue == 1.toDouble){end = true // only mines left on the board => want to end the game since no more move is possible (solver doesn't flag)
-      if(numMines == playerBoard.count{row => row.all{cell => cell match { // TODO check
-        case Hidden() => true
-        case _ => false
+      // Check for a win condition
+      if (mineCount == playerBoard.join.count {
+        case Number(_) => false
+        case _ => true
+      }) {
+        try {
+          println("Solver has uncovered all safe cells and flagged all mines.")
+          do winGame(playerBoard)
+        } with winGame { _ =>
+          printBoard(playerBoard)
+          println(wonMessage)
+          end = true
         }
-      }}){
-        try{println("HERE"); do winGame(playerBoard)} with winGame{b => printBoard(playerBoard); println(wonMessage)}}} // TODO check
-    else{
-    /*if(minValue == 0.toDouble)/*{actionPositions.foreach{p =>
-      commands = // TODO: this needs less computation but isn't correct once floodfill is used?! Cons(PerformAction(Uncover(),p.r, p.c), commands)
-      }}
-      {commands = []}*/
-
-    /*else{*/val pos = actionPositions.headOption
-    pos match {
-      case Some(p) => commands = [PerformAction(Uncover(),p.r, p.c)]
-      case None() => commands = commands
-    }}//}
-    println("Commands: " ++ genericShow(commands))
-    if(commands.size  == 0)try{end = true; do winGame(playerBoard)} with winGame{b => println(wonMessage)}
-    commands.foreach{cmd =>
-      cmd match {
-        case PerformAction(a,x,y) => try {
-          println("performing action: " ++ genericShow(cmd))
-          try{
-        val newBoards = makeMove(playerBoard, solutionBoard, Pos(x, y), a)
-        playerBoard = newBoards.first
-        solutionBoard = newBoards.second
-        printBoard(playerBoard)}with reduceMineCount{mineCount = mineCount - 1}
-        } with gameOver{b =>
-          println(gameOverMessage)
-          println("Game Over..Shouldn't happen => the solver is wrong") // TODO
-          printBoard(b)
-          end = true}
-        case _ => println("shouldn't happen, something is wrong with the solver") // TODO
-        }
-      if(mineCount == playerBoard.join.count{cell => cell match {
-      case Number(n) => false
-      case _ => true
-      }}){try{end = true; do winGame(playerBoard)} with winGame{b => printBoard(playerBoard); println(wonMessage)}}
-    }}} with invalidInput{m => println(m); resume(())}
-
+      }
+    }
+  } with invalidInput { msg =>
+    println(msg)
+    resume(())
+  }
 }
 
 def main(): Unit = {

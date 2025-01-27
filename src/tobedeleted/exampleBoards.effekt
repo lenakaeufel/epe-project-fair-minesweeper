@@ -1,12 +1,13 @@
-import src/newFairMinesweeper
-import src/utils
-import src/safeMoves
-import src/probabilities
-import src/fairRules
 import io/console
 import test
 import tty
 import stream
+
+import src/fairMinesweeper
+import src/utils
+import src/safeMoves
+import src/fairRules
+
 
 val exampleBoard2x2: Board = [
   [Number(0), Number(1)],
@@ -195,19 +196,8 @@ def main() = {
     do assert(bothEqual, "the two lists don't contain the exact same elements")
   }
 
-  def assertProbSetEqual(firstList: List[(Pos, Double)], secondList: List[(Pos, Double)]): Unit/{Assertion, Formatted} = {
-    var bothEqual = false
-    if(not(firstList.isEmpty)){
-      bothEqual = true
-      firstList.foreach{el1 =>
-        bothEqual = bothEqual && secondList.any{el2 => el1.first.posEquals(el2.first) && el1.second.equals(el2.second)}
-      }
-    }
-    do assert(bothEqual, "the two lists don't contain the exact same elements")
-  }
-
   // test if removing a mine from (1,2) to (1,1) works correctly for an example game state
-  println(suite("test main functions"){
+  println(suite("Tests for important functions"){
     test("countAdjacentMines") {
       var countingCorrect = true
       exampleBoard3x3.foreachIndex { (rowIndex, row) =>
@@ -242,9 +232,6 @@ def main() = {
     test("floodfill"){
       assertEqual(floodFill(beforeFloodfillPlayer,floodfillSolution,Pos(3,3)),afterFloodfillPlayer)
     }
-    test("calculateProbabilities"){
-      assertProbSetEqual(calculateProbabilities(probabilitiesPlayer), [(Pos(1,1),0.0), (Pos(2,1),0.5), (Pos(2,0),0.5), (Pos(1,2),0.5), (Pos(0,2),0.5)])
-    }
   })
 
 def assertCommandSetEqual(firstList: List[Command], secondList: List[Command]): Unit/{Assertion, Formatted} = {
@@ -268,7 +255,7 @@ def assertCommandSetEqual(firstList: List[Command], secondList: List[Command]): 
     do assert(bothEqual, "the two command lists don't contain the exact same elements")
   }
 
-  println(suite("findSafeMoves Tests"){
+  println(suite("Tests for findSafeMoves"){
     // Test 1: Simple flag case - all hidden neighbors must be mines
     val flagBoard: Board = [
       [Number(2), Hidden(), Number(2)],

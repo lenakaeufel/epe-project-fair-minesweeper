@@ -1,7 +1,252 @@
 module src/test
 
+import io/console
 import test
-import src/minesweeper
+import tty
+import stream
 
-def main() = {println("Under construction")}
+import src/fairMinesweeper
+import src/utils
+import src/safeMoves
+import src/fairRules
 
+
+val exampleBoard2x2: Board = [
+  [Number(0), Number(1)],
+  [Flagged(), Number(0)]
+]
+
+val exampleBoard3x3: Board = [
+  [Number(0), Number(2), Mine()],
+  [Number(1), Number(3), Mine()],
+  [Number(1), Mine(), Number(2)]
+]
+
+val exampleBoard4x4: Board = [
+  [Number(0), Number(1), Mine(), Flagged()],
+  [Flagged(), Number(0), Number(2), Number(3)],
+  [Number(0), Number(0), Number(2), Number(0)],
+  [Number(0), Flagged(), Mine(), Number(0)]
+]
+
+val examplePlayerBoard4x4: Board = [
+  [Number(0), Number(1), Hidden(), Hidden()],
+  [Flagged(), Number(0), Number(2), Number(3)],
+  [Number(0), Number(0), Number(2), Number(0)],
+  [Number(0), Flagged(), Hidden(), Number(0)]
+]
+
+val exampleSolutionBoard: Board = [
+  [Number(1), Number(1), Number(1), Number(0)],
+  [Number(1), Mine(), Number(1), Number(0)],
+  [Number(1), Number(1), Number(2), Number(1)],
+  [Number(0), Number(0), Number(1), Mine()]
+]
+
+val problematicSolutionBoard: Board = [
+  [Number(0),Number(0),Number(1),Mine(),Number(3),Mine(),Mine()],
+  [Number(0),Number(0),Number(1),Number(2),Number(5),Mine(),Mine()],
+  [Number(0),Number(1),Number(1),Number(3),Mine(),Mine(),Mine()],
+  [Number(2),Number(3),Mine(),Number(4),Mine(),Mine(), Number(4)],
+  [Mine(),Mine(),Number(4),Mine(),Number(6),Mine(),Number(2)],
+  [Number(4),Number(6),Number(6),Mine(),Mine(),Number(4),Number(2)],
+  [Number(1),Mine(),Number(4),Mine(),Mine(),Mine(),Number(1)]
+]
+// problem: when uncovering (6,0), the mine on (6,1) is uncovered as well -> problem of floodfill?!
+val problematicPlayerBoard: Board = [
+  [Number(0),Number(0),Number(1),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Number(0),Number(0),Number(1),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Number(0),Number(1),Number(1),Number(3),Hidden(),Hidden(),Hidden()],
+  [Number(2),Number(3),Flagged(),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Mine(),Flagged(),Number(4),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Number(4),Hidden(),Hidden(),Hidden(),Hidden(),Hidden(),Hidden()],
+  [Hidden(),Hidden(),Hidden(),Hidden(),Hidden(),Hidden(),Hidden()]
+]
+
+val beforeRemoveMineSolution: Board = [
+  [Number(1), Mine(), Number(2), Number(1)],
+  [Number(2), Number(3), Mine(), Number(1)],
+  [Mine(), Number(2), Number(1), Number(1)],
+  [Number(1), Number(1), Number(0), Number(0)]
+]
+
+val beforeRemoveMinePlayer: Board = [
+  [Number(1), Flagged(), Number(2), Hidden()],
+  [Number(2), Hidden(), Hidden(), Hidden()],
+  [Flagged(), Number(2), Hidden(), Hidden()],
+  [Number(1), Number(1), Hidden(), Hidden()]
+]
+
+val afterRemoveMineSolution: Board = [
+  [Number(2), Mine(), Number(2), Number(0)],
+  [Number(3), Mine(), Number(2), Number(0)],
+  [Mine(), Number(2), Number(1), Number(0)],
+  [Number(1), Number(1), Number(0), Number(0)]
+]
+
+val afterRemoveMinePlayer: Board = [
+  [Number(2), Flagged(), Number(2), Hidden()],
+  [Number(3), Hidden(), Hidden(), Hidden()],
+  [Flagged(), Number(2), Hidden(), Hidden()],
+  [Number(1), Number(1), Hidden(), Hidden()]
+]
+
+val floodfillSolution: Board = [
+  [Number(2), Mine(), Number(2), Number(0)],
+  [Number(3), Mine(), Number(2), Number(0)],
+  [Mine(), Number(2), Number(0), Number(0)],
+  [Number(1), Number(1), Number(0), Number(0)]
+]
+
+val beforeFloodfillPlayer: Board = [
+  [Hidden(), Hidden(), Hidden(), Hidden()],
+  [Hidden(), Hidden(), Hidden(), Hidden()],
+  [Hidden(), Hidden(), Hidden(), Hidden()],
+  [Hidden(), Hidden(), Hidden(), Hidden()]
+]
+
+val afterFloodfillPlayer: Board = [
+  [Hidden(), Hidden(), Number(2), Number(0)],
+  [Hidden(), Hidden(), Number(2), Number(0)],
+  [Hidden(), Number(2), Number(0), Number(0)],
+  [Hidden(), Number(1), Number(0), Number(0)]
+]
+
+val probabilitiesPlayer: Board = [
+  [Number(0), Number(1), Hidden(), Hidden()],
+  [Number(1), Hidden(), Hidden(), Hidden()],
+  [Hidden(), Hidden(), Hidden(), Hidden()],
+  [Hidden(), Hidden(), Hidden(), Hidden()]
+]
+
+def main() = {
+  def assertPosSetEqual(firstList: List[Pos], secondList: List[Pos]): Unit/{Assertion, Formatted} = {
+    var bothEqual = false
+    if(not(firstList.isEmpty)){
+      bothEqual = true
+      firstList.foreach{p1 =>
+        bothEqual = bothEqual && secondList.any{p2 => p1.posEquals(p2)}
+      }
+    }
+    do assert(bothEqual, "the two lists don't contain the exact same elements")
+  }
+
+  // test if removing a mine from (1,2) to (1,1) works correctly for an example game state
+  println(suite("Tests for important functions"){
+    test("countAdjacentMines") {
+      var countingCorrect = true
+      exampleBoard3x3.foreachIndex { (rowIndex, row) =>
+        row.foreachIndex { (colIndex, cell) =>
+          cell match {
+            case Number(n) =>
+              if (countAdjacentMines(exampleBoard3x3, Pos(rowIndex, colIndex)) != n) {
+                countingCorrect = false
+              }
+            case _ => countingCorrect = countingCorrect // Non-number cells do not need validation
+          }
+        }
+      }
+      assertTrue(countingCorrect)
+    }
+
+    val (sBoard,pBoard) = replaceMine(beforeRemoveMineSolution, beforeRemoveMinePlayer, Pos(1,2), Pos(1,1))
+    test("replaceMine for solution Board"){
+      assertEqual(sBoard,afterRemoveMineSolution)
+    }
+    test("replaceMine for player Board"){
+      assertEqual(pBoard,afterRemoveMinePlayer)
+    }
+    test("neighboursOf only returns positions within bounds of the board"){
+      val neighbours: List[Pos] = collectList[Pos]{neighboursOf(3,Pos(0,0),1)}
+      assertPosSetEqual(neighbours,[Pos(0,1),Pos(1,1),Pos(1,0)])
+    }
+    test("nonDiagonalNeighboursOf with radius 0 returns the 4 non diagonal neighbours"){
+      val neighbours: List[Pos] = collectList[Pos]{nonDiagonalNeighboursOf(3,Pos(1,1))}
+      assertPosSetEqual(neighbours, [Pos(0,1),Pos(1,0),Pos(2,1),Pos(1,2)])
+    }
+    test("floodfill"){
+      assertEqual(floodFill(beforeFloodfillPlayer,floodfillSolution,Pos(3,3)),afterFloodfillPlayer)
+    }
+  })
+
+def assertCommandSetEqual(firstList: List[Command], secondList: List[Command]): Unit/{Assertion, Formatted} = {
+    var bothEqual = false
+    if(not(firstList.isEmpty)){
+      bothEqual = true
+      firstList.foreach{ cmd1 =>
+        bothEqual = bothEqual && secondList.any{ cmd2 => 
+          (cmd1, cmd2) match {
+            case (PerformAction(a1, p1), PerformAction(a2, p2)) => 
+              p1.posEquals(p2) && ((a1, a2) match {
+                case (Flag(), Flag()) => true
+                case (Uncover(), Uncover()) => true
+                case _ => false
+              })
+            case _ => false
+          }
+        }
+      }
+    }
+    do assert(bothEqual, "the two command lists don't contain the exact same elements")
+  }
+
+  println(suite("Tests for findSafeMoves"){
+    // Test 1: Simple flag case - all hidden neighbors must be mines
+    val flagBoard: Board = [
+      [Number(2), Hidden(), Number(2)],
+      [Number(3), Hidden(), Number(3)],
+      [Number(2), Hidden(), Number(2)]
+    ]
+    test("All hidden neighbors must be mines"){
+      assertCommandSetEqual(
+        safeMoves(flagBoard),
+        [PerformAction(Flag(), Pos(0,1)), 
+         PerformAction(Flag(), Pos(1,1)), 
+         PerformAction(Flag(), Pos(2,1))]
+      )
+    }
+
+    // Test 2: Simple uncover case - all mines are flagged
+    val uncoverBoard: Board = [
+      [Number(1), Hidden(), Number(1)],
+      [Flagged(), Hidden(), Flagged()],
+      [Number(1), Hidden(), Number(1)]
+    ]
+    test("All mines are flagged, safe to uncover"){
+      assertCommandSetEqual(
+        safeMoves(uncoverBoard),
+        [PerformAction(Uncover(), Pos(0,1)), 
+         PerformAction(Uncover(), Pos(1,1)), 
+         PerformAction(Uncover(), Pos(2,1))]
+      )
+    }
+
+    // Test 3: Mixed case - some cells need flagging, others uncovering
+    val mixedBoard: Board = [
+      [Number(1), Hidden(), Number(1)],
+      [Flagged(), Hidden(), Hidden()],
+      [Number(1), Hidden(), Number(1)]
+    ]
+    test("Mixed flagging and uncovering"){
+      assertCommandSetEqual(
+        safeMoves(mixedBoard),
+        [PerformAction(Uncover(), Pos(0,1)),
+         PerformAction(Uncover(), Pos(1,1)),
+         PerformAction(Uncover(), Pos(2,1)),
+         PerformAction(Flag(), Pos(1,2))]
+      )
+    }
+
+    // Test 4: No safe moves available
+    val noMovesBoard: Board = [
+      [Number(1), Hidden(), Hidden()],
+      [Hidden(), Hidden(), Hidden()],
+      [Hidden(), Hidden(), Number(1)]
+    ]
+    test("No safe moves available"){ // TODO technically, if the player knows how many mines there are and there is only one left, he knows it's in the middle
+      assertTrue(
+        safeMoves(noMovesBoard).isEmpty
+      )
+    }
+  })
+}

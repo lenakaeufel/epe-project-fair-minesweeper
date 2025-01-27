@@ -119,17 +119,37 @@ def isMine(board: Board, pos: Pos): Bool = {
   }
 }
 
-def printRules(rules: List[Rule]): Unit = {
-  var rulesString: String = ""
-  rules.foreach{ rule =>
-    val ruleString: String = "Rule(" ++ show(rule.mineCount) ++ ", " ++ genericShow(rule.positions) ++ ") \n" 
-    rulesString = rulesString ++ ruleString
+// Returns the positions of all cells that are still Hidden on the player's board
+def getHiddenCells(board: Board): List[Pos] = {
+  var hiddenCells: List[Pos] = []
+  board.foreachIndex{ (rowIndex, row) =>
+    row.foreachIndex{ (colIndex, cell) => 
+      with on[OutOfBounds].panic
+      board.get(rowIndex).get(colIndex) match {
+        case Hidden() => hiddenCells = Cons(Pos(rowIndex, colIndex), hiddenCells)
+        case _ => ()
+      }
+    }
   }
-  println(rulesString)
+  hiddenCells
 }
 
+def printRules(): Unit = {
+  println("")
+  println("Here are the rules of Fair Minesweeper:")
+  println("1. The board will display numbers. Each number indicates how many of the 8 surrounding cells are mines.")
+  println("2. Your goal is to uncover all the safe cells that do not contain a mine to win the game.")
+  println("3. Sometimes, you can't be sure whether any of the remaining covered cells are mines or safe.")
+  println("   - In such cases, the first Fair Rule applies: any cell you uncover is guaranteed to be safe.")
+  println("4. Be careful, though! If you could have been certain that a specific cell was safe but tried to uncover a different one, you lose immediately.")
+  println("   - Guessing is not allowed when a safe move is possible.")
+  println("5. Flagging cells that you are 100% sure contain mines is also considered a safe move.")
+  println("   - You must flag all known mines before making any guesses.")
+  println("Now, have fun and good luck!")
+  println("")
+}
 
-val helpMessage = "To make an action, type one of the following: u to uncover, f to flag/unflag, h for help and q to quit the game"
+val helpMessage = "To make an action, type one of the following: u to uncover, f to flag/unflag, h for help, r to print the rules and q to quit the game"
 val wonMessage = """
  __     ______  _    _    __          ______  _   _  
  \ \   / / __ \| |  | |   \ \        / / __ \| \ | | 
