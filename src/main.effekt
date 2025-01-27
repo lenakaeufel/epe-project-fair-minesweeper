@@ -1,5 +1,5 @@
 module main // must be named same as the file!
 
-import src/minesweeper
+import src/fairMinesweeper
 
 def main()= println("Under construction")

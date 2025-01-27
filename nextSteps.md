@@ -12,14 +12,12 @@ To organize/structure the project, the next steps I want to do will always be ad
 
 - ✅ replacement of mines doesn't work -> if we can't make a safe move and fair rules should apply (= mine is moved in case we unflag cell with mine). But instead the player still looses the game
 
-- ❌ implement chording
-
 - 🟡 properly notice when game is won:
 
   - game should be won once all cells not containing a mine are uncovered
   - it does **not** matter if all the mines are flagged or not
   - still TODO: check if reduceMineCount actually works by doing this:
-    - ❌ when moving a Mine, only move it to cells with only Hidden neighbours so that uncovered cells aren't changed
+    - 🛠️ when moving a Mine, only move it to cells with only Hidden neighbours so that uncovered cells aren't changed
 
 - ❌ Restarting the Game:
 

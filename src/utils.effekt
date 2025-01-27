@@ -59,6 +59,66 @@ def posEquals(left: Pos, right: Pos) = (left, right) match {
   case (Pos(lx, ly), Pos(rx, ry)) => lx == rx && ly == ry
 }
 
+/// Gets the neighbouring positions of a given position `pos` within a specified `radius`
+/// Only valid positions for a board of given size are being returned and the position itself is excluded
+/// with radius = 1, these are the 8 immediate neighbours (including the diagonal)
+/// with radius=2, these are neighbours&their neighbours
+/// 
+def neighboursOf(boardSize: Int, pos: Pos, radius: Int): Unit/emit[Pos] = {
+  with val dx = for[Int] { range(neg(radius), radius + 1) }
+  with val dy = for[Int] { range(neg(radius), radius + 1) }
+  val newPosition = Pos(pos.r + dx, pos.c + dy)
+
+  if(isValidIndex(boardSize, newPosition) && not((dx == 0) && (dy == 0))){
+    do emit(newPosition)
+  }
+}
+
+// Gets the neighbouring positions of a given position `pos`, excluding the diagonal
+// -> each pos has max 4 non-diagonal neighbours
+def nonDiagonalNeighboursOf(boardSize: Int, pos: Pos) : Unit/emit[Pos] ={
+  // Define movement directions: top, bottom, left, right (no diagonals)
+  val dx = [-1, 1, 0, 0] // Up, Down, Left, Right
+  val dy = [0, 0, -1, 1] // Up, Down, Left, Right
+
+  with on[OutOfBounds].panic
+  each(0,4){ n => 
+    val newRow = pos.r + dx.get(n)
+    val newCol = pos.c + dy.get(n)
+    if(isValidIndex(boardSize, Pos(newRow, newCol))) {
+      do emit(Pos(newRow, newCol))
+    }
+  }
+}
+
+// Updates the state of a cell at the given position `pos` on the board with the new state `state`
+// Returns a new board where only the specified cell has been updated, leaving the rest unchanged
+def updateCell(board: Board, pos: Pos, state: CellState): Board = {
+  board.updateAt(pos.r){r =>
+    r.updateAt(pos.c){s => state}}
+}
+
+// Counts the number of Mines surrounding the cell at Position `pos` 
+// min: 0, max: 8
+def countAdjacentMines(board: Board, pos: Pos): Int = {
+  val neighbours = collectList[Pos]{neighboursOf(board.size, pos, 1)}
+  neighbours.count{neighbourPos => isMine(board, neighbourPos)}
+}
+
+// Determines if a given position `pos` is within the valid bounds of a square board of size `size`
+def isValidIndex(size: Int, pos: Pos): Bool = {
+  (pos.r >= 0) && (pos.r < size) && (pos.c >= 0) && (pos.c < size)
+}
+
+// Checks if the cell with index `pos` contains a Mine() on the given board
+def isMine(board: Board, pos: Pos): Bool = {
+  with on[OutOfBounds].panic
+  board.get(pos.r).get(pos.c) match {
+    case Mine() => true
+    case _ => false
+  }
+}
+
 def printRules(rules: List[Rule]): Unit = {
   var rulesString: String = ""
   rules.foreach{ rule =>
