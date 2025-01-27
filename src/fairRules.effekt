@@ -17,7 +17,7 @@ def replacementNeeded(solutionBoard: Board, probabilities: List[(Pos, Double)], 
       false
       }
       else{ // there is a safe move but the user didn't choose it => he looses
-      do gameOver(solutionBoard); false // TODO use special gameOver here (with message that he lost bc of fair rules)
+      do gameOver("lost bc of fair rules",solutionBoard); false // TODO use special gameOver here (with message that he lost bc of fair rules)
     }  
     }
 }

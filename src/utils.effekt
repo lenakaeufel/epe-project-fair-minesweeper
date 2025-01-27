@@ -23,7 +23,7 @@ extern def randomInt(minInclusive: Int, maxExclusive: Int): Int =
     
 
 effect invalidInput(msg: String): Unit
-effect gameOver(finalBoard: Board): Unit
+effect gameOver(why: String, finalBoard: Board): Unit
 effect winGame(finalBoard: Board): Unit
 effect reduceMineCount(): Unit
 
@@ -45,7 +45,7 @@ type Action {
 }
 
 type Command {
-  PerformAction(a: Action,x: Int, y: Int);
+  PerformAction(a: Action, pos: Pos);
   Help();
   Quit();
   Rules()

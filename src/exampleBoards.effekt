@@ -1,5 +1,6 @@
-import src/fairMinesweeper
+import src/newFairMinesweeper
 import src/utils
+import src/safeMoves
 import src/probabilities
 import src/fairRules
 import io/console
@@ -183,12 +184,6 @@ def playMinesweeperdebug(boardSize: Int, numMines: Int): Unit = {
 }*/
 
 def main() = {
-  /*printBoard(problematicSolutionBoard)
-  printBoard(problematicPlayerBoard)
-  val ffres = floodFill(problematicPlayerBoard,problematicSolutionBoard,Pos(6,0),[])
-  printBoard(ffres.first)*/
-  //playMinesweeperdebug(7,22)
-  // 
   def assertPosSetEqual(firstList: List[Pos], secondList: List[Pos]): Unit/{Assertion, Formatted} = {
     var bothEqual = false
     if(not(firstList.isEmpty)){
@@ -252,4 +247,84 @@ def main() = {
     }
   })
 
+def assertCommandSetEqual(firstList: List[Command], secondList: List[Command]): Unit/{Assertion, Formatted} = {
+    var bothEqual = false
+    if(not(firstList.isEmpty)){
+      bothEqual = true
+      firstList.foreach{ cmd1 =>
+        bothEqual = bothEqual && secondList.any{ cmd2 => 
+          (cmd1, cmd2) match {
+            case (PerformAction(a1, p1), PerformAction(a2, p2)) => 
+              p1.posEquals(p2) && ((a1, a2) match {
+                case (Flag(), Flag()) => true
+                case (Uncover(), Uncover()) => true
+                case _ => false
+              })
+            case _ => false
+          }
+        }
+      }
+    }
+    do assert(bothEqual, "the two command lists don't contain the exact same elements")
+  }
+
+  println(suite("findSafeMoves Tests"){
+    // Test 1: Simple flag case - all hidden neighbors must be mines
+    val flagBoard: Board = [
+      [Number(2), Hidden(), Number(2)],
+      [Number(3), Hidden(), Number(3)],
+      [Number(2), Hidden(), Number(2)]
+    ]
+    test("All hidden neighbors must be mines"){
+      assertCommandSetEqual(
+        safeMoves(flagBoard),
+        [PerformAction(Flag(), Pos(0,1)), 
+         PerformAction(Flag(), Pos(1,1)), 
+         PerformAction(Flag(), Pos(2,1))]
+      )
+    }
+
+    // Test 2: Simple uncover case - all mines are flagged
+    val uncoverBoard: Board = [
+      [Number(1), Hidden(), Number(1)],
+      [Flagged(), Hidden(), Flagged()],
+      [Number(1), Hidden(), Number(1)]
+    ]
+    test("All mines are flagged, safe to uncover"){
+      assertCommandSetEqual(
+        safeMoves(uncoverBoard),
+        [PerformAction(Uncover(), Pos(0,1)), 
+         PerformAction(Uncover(), Pos(1,1)), 
+         PerformAction(Uncover(), Pos(2,1))]
+      )
+    }
+
+    // Test 3: Mixed case - some cells need flagging, others uncovering
+    val mixedBoard: Board = [
+      [Number(1), Hidden(), Number(1)],
+      [Flagged(), Hidden(), Hidden()],
+      [Number(1), Hidden(), Number(1)]
+    ]
+    test("Mixed flagging and uncovering"){
+      assertCommandSetEqual(
+        safeMoves(mixedBoard),
+        [PerformAction(Uncover(), Pos(0,1)),
+         PerformAction(Uncover(), Pos(1,1)),
+         PerformAction(Uncover(), Pos(2,1)),
+         PerformAction(Flag(), Pos(1,2))]
+      )
+    }
+
+    // Test 4: No safe moves available
+    val noMovesBoard: Board = [
+      [Number(1), Hidden(), Hidden()],
+      [Hidden(), Hidden(), Hidden()],
+      [Hidden(), Hidden(), Number(1)]
+    ]
+    test("No safe moves available"){ // TODO technically, if the player knows how many mines there are and there is only one left, he knows it's in the middle
+      assertTrue(
+        safeMoves(noMovesBoard).isEmpty
+      )
+    }
+  })
 }

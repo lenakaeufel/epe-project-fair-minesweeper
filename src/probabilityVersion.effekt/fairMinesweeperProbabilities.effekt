@@ -301,7 +301,7 @@ def playMinesweeper(boardSize: Int, numMines: Int): Unit = {
 }
 
 def main(): Unit = {
-  playMinesweeper(10,30)
+  playMinesweeper(9,20)
 }
 
 
