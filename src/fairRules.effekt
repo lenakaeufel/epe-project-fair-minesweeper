@@ -76,13 +76,14 @@ def replaceMine(solutionBoard: Board, playerBoard: Board, movePos: Pos, newMineP
       val cellStateSolution = updatedSolutionBoard.get(pos.r).get(pos.c)
       val cellStatePlayer = updatedPlayerBoard.get(pos.r).get(pos.c)
       cellStateSolution match {
-        case Number(n) => val adjMines = countAdjacentMines(updatedSolutionBoard, pos)
-                         updatedSolutionBoard = updatedSolutionBoard.updateCell(pos, Number(adjMines))
-                         cellStatePlayer match {
-                          case Number(n) => updatedPlayerBoard = updatedPlayerBoard.updateCell(pos, Number(adjMines))
-                          case Flagged() => updatedPlayerBoard = updatedPlayerBoard.updateCell(pos, Hidden()) // TODO check. Currently necessary, but if candidates must have only hidden cells around them not anymore?
-                          case _ => updatedPlayerBoard = updatedPlayerBoard // all cells except Numbers are Hidden on the player Board and therefore don't need update
-                         }
+        case Number(n) => 
+          val adjMines = countAdjacentMines(updatedSolutionBoard, pos)
+          updatedSolutionBoard = updatedSolutionBoard.updateCell(pos, Number(adjMines))
+          cellStatePlayer match {
+            case Number(n) => updatedPlayerBoard = updatedPlayerBoard.updateCell(pos, Number(adjMines))
+            case Flagged() => updatedPlayerBoard = updatedPlayerBoard.updateCell(pos, Hidden()) // TODO check. Currently necessary, but if candidates must have only hidden cells around them not anymore?
+            case _ => updatedPlayerBoard = updatedPlayerBoard // all cells except Numbers are Hidden on the player Board and therefore don't need update
+          }
         case _ => updatedSolutionBoard = updatedSolutionBoard
       }
     }

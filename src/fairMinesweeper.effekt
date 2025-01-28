@@ -163,57 +163,6 @@ def makeMove(solutionBoard: Board, playerBoard: Board, pos: Pos, action: Action)
   }
 }
 
-// Parses a user command and converts it into a corresponding Command object
-// Returns a Command or raises an `invalidInput` exception for invalid user inputs.
-def parseCommand(userInputs: List[String], boardSize: Int): Command/{invalidInput} = {
-  val len = userInputs.size
-  var cmd = Help() // Default to `Help()` in case of invalid inputs or unexpected behavior
-  with on[OutOfBounds].panic
-  if(len == 1){
-    val a = userInputs.get(0)
-    if(a == "h"){
-      cmd = Help()
-    }
-    else if(a == "r"){cmd = Rules()}
-
-    else if(a == "q"){
-      cmd = Quit()
-    }
-    else{
-      do invalidInput("invalid input: you didn't type a valid action :(" )
-      cmd = Help()
-    }
-  }
-  else if(len == 2){
-    do invalidInput("invalid input: col coordinate is missing")
-    cmd = Help()
-  }
-  else if(len == 3){
-    with on[OutOfBounds].panic
-    val a: String = userInputs.get(0)
-    val xString: String = userInputs.get(1)
-    with on[WrongFormat].default{cmd = Help()}
-    val x: Int = xString.toInt()
-    val yString: String = userInputs.get(2)
-    val y: Int = yString.toInt()
-
-    if(isValidIndex(boardSize, Pos(x, y))){
-      if(a == "f"){
-        cmd = PerformAction(Flag(),Pos(x,y))
-      }
-      else {
-        if(a == "u"){
-        cmd = PerformAction(Uncover(),Pos(x,y))
-      }
-       else {do invalidInput("invalid input: you didn't type a correct action" ++ helpMessage)}
-    }}
-    else{do invalidInput("invalid input: given coordinates (row,col) = (" ++ show(x) ++ "," ++ show(y) ++ ") " ++ "are not within the board of size " ++ show(boardSize))}
-  }
-  else{do invalidInput("TODO: wrong number of actions not possible?!")}
-
-  cmd
-}
-
 // Processes user inputs by converting them into a corresponding Command object
 // Returns a Command or raises an `invalidInput` exception for invalid user inputs.
 def processUserInput(userInputs: List[String], boardSize: Int): Command/{invalidInput} = {

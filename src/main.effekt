@@ -3,5 +3,5 @@ module main // must be named same as the file!
 import src/fairMinesweeper
 
 def main() = {
-  playMinesweeper(6,10)
+  playMinesweeper(4,6)
 }

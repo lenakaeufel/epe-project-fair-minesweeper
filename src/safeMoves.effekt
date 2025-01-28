@@ -54,83 +54,27 @@ def safeMoves(playerBoard: Board): List[Command] = {
             case _ => ()
           }
         }
-        // Add safe moves if found
-        /*if (hidden.size == n - flagCount || flagCount == n) {
-          val action = if (flagCount == n) Uncover() else Flag()
-          hidden.foreach{ nb =>
-            if(not(commands.any{case PerformAction(_, p) => p.posEquals(nb); case _ => false})) {
-              commands = Cons(PerformAction(action, nb), commands)
+        if(hidden.size == n - flagCount){ 
+            hidden.foreach{ nb =>
+            if(not(commands.any{c => 
+              c match {
+                case PerformAction(a,p) =>
+                  p.posEquals(nb)
+                case _ => false}})) commands = Cons(PerformAction(Flag(), nb), commands)}
             }
-          }*/
-          if(hidden.size == n - flagCount){
+          else if(flagCount == n){
               hidden.foreach{ nb =>
               if(not(commands.any{c => 
-                c match {
-                  case PerformAction(a,p) =>
-                    p.posEquals(nb)
-                  case _ => false}})) commands = Cons(PerformAction(Flag(), nb), commands)}
-              }
-            else if(flagCount == n){
-                hidden.foreach{ nb =>
-                if(not(commands.any{c => 
-                c match {
-                  case PerformAction(a,p) =>
-                    p.posEquals(nb)
-                  case _ => false}})) commands = Cons(PerformAction(Uncover(), nb), commands)}
-            }
+              c match {
+                case PerformAction(a,p) =>
+                  p.posEquals(nb)
+                case _ => false}})) commands = Cons(PerformAction(Uncover(), nb), commands)}
+          }
       case _ => ()
     }    
   }
   commands
 }
-
-/*
-def findSafeMoves(): List[Command] = {
-    var commands = []
-    val interestingC = interestingCells(playerBoard)
-    //println("interesting Cells: " ++ genericShow(interestingC))
-    interestingC.foreach{cellPos =>
-      with on[OutOfBounds].panic
-      playerBoard.get(cellPos.r).get(cellPos.c) match {
-        case Number(n) => 
-          var hiddenCount = 0
-          var flaggedCount = 0
-          var relevantNeighbours = []
-          val neighbours: List[Pos] = collectList{neighboursOf(playerBoard.size,cellPos, 1)}
-          //println("neighbours of " ++ genericShow(cellPos))
-          //println(genericShow(neighbours))
-          neighbours.foreach{neighbour =>
-            with on[OutOfBounds].panic
-            playerBoard.get(neighbour.r).get(neighbour.c) match {
-              case Hidden() => hiddenCount = hiddenCount + 1; relevantNeighbours = Cons(neighbour, relevantNeighbours)
-              case Flagged() => flaggedCount = flaggedCount + 1; relevantNeighbours = Cons(neighbour, relevantNeighbours)
-              case  => ()
-            }
-          }
-            if(hiddenCount == n - flaggedCount){
-              relevantNeighbours.foreach{ nb =>
-              if(not(commands.any{c => 
-                c match {
-                  case PerformAction(a,p) =>
-                    p.posEquals(nb)
-                  case  => false}})) commands = Cons(PerformAction(Flag(), nb), commands)}
-              }
-            else if(flaggedCount == n){
-                relevantNeighbours.foreach{ nb =>
-                if(not(commands.any{c => 
-                c match {
-                  case PerformAction(a,p) =>
-                    p.posEquals(nb)
-                  case  => false}})) commands = Cons(PerformAction(Uncover(), nb), commands)}
-            }
-        case  => commands = commands
-      }    
-    }
-    //println(genericShow(commands))
-    commands
-  }
-  findSafeMoves()
-}*/
 
 def noSafeUncovering(safeMoves: List[Command]): Bool = {
   if(safeMoves.isEmpty) true

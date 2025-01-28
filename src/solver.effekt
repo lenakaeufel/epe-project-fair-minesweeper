@@ -25,25 +25,25 @@ def solver(startingBoard: Board, numMines: Int): Unit = {
       if (safeMoves.isEmpty) {
         println("No more safe moves can be determined.")
         // Check if all remaining cells are mines
-        if (mineCount == playerBoard.join.count {
-          case Hidden() => true
-          case _ => false
-        }) {
           try {
             println("Solver has successfully flagged all mines.")
             do winGame(playerBoard)
-          } with winGame { _ =>
-            printBoard(playerBoard)
-            println(wonMessage)
-            end = true
+          } with winGame { finalBoard =>
+            if (mineCount == playerBoard.join.count {
+            case Hidden() => true
+            case _ => false
+            }) {
+              printBoard(finalBoard)
+              println(wonMessage)
+              end = true
+            } else resume(())
           }
-        } else {
+         
           println("Solver has to guess since no safe move is possible")
           with on[OutOfBounds].panic
           val hiddenCells = playerBoard.getHiddenCells()
           val guess = hiddenCells.get(randomInt(0, hiddenCells.size))
           println("Solver is guessing at (" ++ show(guess.r) ++ "," ++ show(guess.c) ++ ")")
-
           try {
             try {
               val (newSolutionBoard, newPlayerBoard) = makeMove(solutionBoard, playerBoard, guess, Uncover())
@@ -61,7 +61,7 @@ def solver(startingBoard: Board, numMines: Int): Unit = {
             end = true
           }
         }
-      } else {
+        else {
         // Perform all safe moves
         safeMoves.foreach {
           case PerformAction(action, Pos(row, col)) =>
@@ -106,5 +106,5 @@ def solver(startingBoard: Board, numMines: Int): Unit = {
 
 def main(): Unit = {
   val startingBoard = generatePlayerBoard(6)
-  solver(startingBoard, 3)
+  solver(startingBoard, 10)
 }
